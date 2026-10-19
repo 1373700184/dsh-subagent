@@ -1,6 +1,6 @@
 {
   "name": "dsh-subagent",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "description": "Aggregate external subscription CLIs (Qoder, QoderCN, and more) as dsh subagent providers, with a settings page for model/effort/context control",
   "type": "module",
   "main": "./lib/index.js",

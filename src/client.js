@@ -124,7 +124,9 @@ function ProviderCard({ spec, index, form, connection }) {
 }
 
 function QoderSection({ form, connection }) {
-	const snapshot = React.useSyncExternalStore(form.subscribe, form.getSnapshot);
+	const subscribe = React.useCallback((cb) => form.subscribe(cb), [form]);
+	const getSnapshot = React.useCallback(() => form.getSnapshot(), [form]);
+	const snapshot = React.useSyncExternalStore(subscribe, getSnapshot);
 	if (snapshot.status === "loading") return h("div", { style: { opacity: 0.6 } }, "加载配置…");
 	if (snapshot.status === "unavailable") return h("div", null, "dsh-subagent 配置未挂载(检查 profile bundles)。");
 	const providers = snapshot.value?.providers ?? [];
