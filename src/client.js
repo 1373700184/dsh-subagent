@@ -138,6 +138,60 @@ function QoderSection({ form, connection }) {
 	);
 }
 
+/** Compact live progress row for one background Qoder child run. */
+function QoderToolView({ block, connection }) {
+	const settled = block?.kind === "tool-result";
+	const resultText = settled ? (block.content ?? []).find?.((item) => item?.type === "text")?.text ?? "" : "";
+	const runId = /started subagent ([0-9a-fA-F-]{36})/.exec(resultText)?.[1];
+	const [run, setRun] = React.useState(null);
+	const [, setTick] = React.useState(0);
+
+	const running = Boolean(runId) && (!run || run.status === "running");
+	React.useEffect(() => {
+		if (!runId || !connection) return;
+		let alive = true;
+		const poll = async () => {
+			try {
+				const next = await callRpc(connection, "activity", { runId });
+				if (alive) setRun(next.run ?? null);
+			} catch {}
+		};
+		poll();
+		const timer = setInterval(poll, 2000);
+		return () => {
+			alive = false;
+			clearInterval(timer);
+		};
+	}, [runId, connection]);
+	React.useEffect(() => {
+		if (!running) return;
+		const timer = setInterval(() => setTick((x) => x + 1), 1000);
+		return () => clearInterval(timer);
+	}, [running]);
+
+	if (!settled) return h("div", { style: { opacity: 0.6, fontSize: 13 } }, "正在启动 Qoder 子代理…");
+	if (!runId) return h("div", { style: { fontSize: 13 } }, resultText || "Qoder 子代理");
+
+	const status = run?.status ?? "running";
+	const seconds = run ? Math.max(0, Math.round(((run.endedAt ?? Date.now()) - run.startedAt) / 1000)) : 0;
+	const badge = { running: ["运行中", "#b8860b"], completed: ["已完成", "#3f9d5a"], error: ["出错", "#e5533c"], aborted: ["已取消", "#8a8a8a"] }[status] ?? ["…", "#8a8a8a"];
+	const events = (run?.events ?? []).slice(-6);
+	const kindIcon = { tool: "⚙", text: "▸", result: "✔", error: "✖" };
+	return h("div", { style: { fontSize: 13, lineHeight: 1.5 } },
+		h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
+			h("span", { style: { fontWeight: 600 } }, run?.provider ?? "qoder"),
+			h("span", { style: { color: badge[1] } }, badge[0]),
+			h("span", { style: { opacity: 0.55 } }, `${seconds}s`),
+			run?.label ? h("span", { style: { opacity: 0.55 } }, `· ${run.label}`) : null,
+		),
+		events.length > 0 && h("div", { style: { marginTop: 4, paddingLeft: 10, borderLeft: "2px solid rgba(128,128,128,0.25)", opacity: 0.85 } },
+			events.map((event, index) => h("div", { key: index, style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 560, fontFamily: event.kind === "tool" ? "ui-monospace, Consolas, monospace" : undefined } },
+				`${kindIcon[event.kind] ?? "·"} ${event.text}`,
+			)),
+		),
+	);
+}
+
 function apply(ctx) {
 	const form = ctx.configForms.get(ENTRY_ID);
 	ctx.effect(() => ctx.locale.register(LOCALE_NS, LOCALES), "qoder-subagent: copy");
@@ -149,6 +203,14 @@ function apply(ctx) {
 		label: () => "Qoder 子代理",
 		inject: () => ({ form, connection: ctx.get("connection") }),
 	}, QoderSection));
+	for (const toolName of ["qoder", "qodercn"]) {
+		ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
+			name: "tool.call.toolview",
+			key: toolName,
+			locale: LOCALE_NS,
+			inject: () => ({ connection: ctx.get("connection") }),
+		}, QoderToolView));
+	}
 }
 
 export { apply, inject, name };
