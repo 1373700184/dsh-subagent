@@ -138,13 +138,15 @@ function QoderSection({ form, connection }) {
 	);
 }
 
-/** Compact live progress row for one background Qoder child run. */
+/** Expandable live progress panel for one background Qoder child run. */
 function QoderToolView({ block, connection }) {
 	const settled = block?.kind === "tool-result";
 	const resultText = settled ? (block.content ?? []).find?.((item) => item?.type === "text")?.text ?? "" : "";
 	const runId = /started subagent ([0-9a-fA-F-]{36})/.exec(resultText)?.[1];
 	const [run, setRun] = React.useState(null);
+	const [open, setOpen] = React.useState(false);
 	const [, setTick] = React.useState(0);
+	const bodyRef = React.useRef(null);
 
 	const running = Boolean(runId) && (!run || run.status === "running");
 	React.useEffect(() => {
@@ -168,6 +170,9 @@ function QoderToolView({ block, connection }) {
 		const timer = setInterval(() => setTick((x) => x + 1), 1000);
 		return () => clearInterval(timer);
 	}, [running]);
+	React.useEffect(() => {
+		if (open && bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+	}, [open, run?.events?.length]);
 
 	if (!settled) return h("div", { style: { opacity: 0.6, fontSize: 13 } }, "正在启动 Qoder 子代理…");
 	if (!runId) return h("div", { style: { fontSize: 13 } }, resultText || "Qoder 子代理");
@@ -175,19 +180,42 @@ function QoderToolView({ block, connection }) {
 	const status = run?.status ?? "running";
 	const seconds = run ? Math.max(0, Math.round(((run.endedAt ?? Date.now()) - run.startedAt) / 1000)) : 0;
 	const badge = { running: ["运行中", "#b8860b"], completed: ["已完成", "#3f9d5a"], error: ["出错", "#e5533c"], aborted: ["已取消", "#8a8a8a"] }[status] ?? ["…", "#8a8a8a"];
-	const events = (run?.events ?? []).slice(-6);
-	const kindIcon = { tool: "⚙", text: "▸", result: "✔", error: "✖" };
+	const allEvents = run?.events ?? [];
+	const shown = open ? allEvents : allEvents.slice(-6);
+	const kindIcon = { tool: "⚙", text: "▸", think: "◎", result: "✔", error: "✖" };
 	return h("div", { style: { fontSize: 13, lineHeight: 1.5 } },
-		h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
+		h("div", {
+			style: { display: "flex", gap: 8, alignItems: "baseline", cursor: "pointer", userSelect: "none" },
+			onClick: () => setOpen((x) => !x),
+			title: open ? "收起详情" : "展开全部过程",
+		},
+			h("span", { style: { display: "inline-block", transform: `rotate(${open ? 90 : 0}deg)`, transition: "transform .15s" } }, "▸"),
 			h("span", { style: { fontWeight: 600 } }, run?.provider ?? "qoder"),
 			h("span", { style: { color: badge[1] } }, badge[0]),
 			h("span", { style: { opacity: 0.55 } }, `${seconds}s`),
 			run?.label ? h("span", { style: { opacity: 0.55 } }, `· ${run.label}`) : null,
+			h("span", { style: { opacity: 0.45, marginLeft: "auto" } }, `${allEvents.length} 步`),
 		),
-		events.length > 0 && h("div", { style: { marginTop: 4, paddingLeft: 10, borderLeft: "2px solid rgba(128,128,128,0.25)", opacity: 0.85 } },
-			events.map((event, index) => h("div", { key: index, style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 560, fontFamily: event.kind === "tool" ? "ui-monospace, Consolas, monospace" : undefined } },
-				`${kindIcon[event.kind] ?? "·"} ${event.text}`,
-			)),
+		shown.length > 0 && h("div", {
+			ref: bodyRef,
+			style: {
+				marginTop: 4, paddingLeft: 10, borderLeft: "2px solid rgba(128,128,128,0.25)",
+				maxHeight: open ? 420 : "none", overflowY: open ? "auto" : "hidden",
+			},
+		},
+			shown.map((event, index) => h("div", {
+				key: index,
+				style: {
+					whiteSpace: open ? "pre-wrap" : "nowrap", overflow: open ? "visible" : "hidden",
+					textOverflow: open ? undefined : "ellipsis", maxWidth: 620,
+					fontFamily: event.kind === "tool" ? "ui-monospace, Consolas, monospace" : undefined,
+					opacity: event.kind === "think" ? 0.7 : 0.9,
+				},
+			}, `${kindIcon[event.kind] ?? "·"} ${event.text}`)),
+			open && run?.sessionId && h("div", { style: { marginTop: 8, opacity: 0.55, fontSize: 12 } },
+				"完整记录已存 CLI 会话: ",
+				h("code", null, `${run.provider === "qodercn" ? "qoderclicn" : "qodercli"} --resume ${run.sessionId}`),
+			),
 		),
 	);
 }

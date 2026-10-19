@@ -24,6 +24,11 @@ dsh plugin --profile web add github:1373700184/dsh-subagent
 
 父 agent 会调用 `qoder` 工具,插件 spawn `qodercli -p ...` 并返回子代理的最终文本。`qodercn` 工具走国内版 CLI。
 
+### 进度随时可查(像本地子任务)
+
+- **对话内实时面板**:委派工具行显示状态徽章(运行中/已完成/出错)、计时、子代理动作流(思考 ◎、工具调用 ⚙、输出 ▸),点击展开完整过程,运行中每 2 秒刷新;结束后面板给出 `qodercli --resume <id>` 命令,可在 CLI 回看/继续该子会话。
+- **父 agent 查询工具 `qoder_subagent_status`**:随时可查任意委派的进度——省略 `run_id` 列出最近运行及最新动作,传 `run_id`(`started subagent <id>` 里的那个)返回事件转录。问"子代理到哪了"不再得到"我看不到"。
+
 ## 设置页
 
 web 版 dsh 的 **设置 → Qoder 子代理** 页面可以直接:

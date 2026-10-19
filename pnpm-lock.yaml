@@ -17,6 +17,9 @@ importers:
       '@deepseek-ai/dsh-tool-subagent':
         specifier: 0.2.1-rc.2
         version: 0.2.1-rc.2(1f5281c232139de5bab760cfb48ef106)
+      '@deepseek-ai/dsh-tools':
+        specifier: 0.2.1-rc.2
+        version: 0.2.1-rc.2(53871834bb50b7f532ec7289e680bbda)
       '@deepseek-ai/schemastery':
         specifier: ^3.18.2
         version: 3.18.5
