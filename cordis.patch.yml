@@ -1,0 +1,25 @@
+# Registers the dsh-subagent provider plugin, then mounts one delegation tool
+# per configured backend. Each provider name here must match a provider the
+# plugin registers in its apply() (see lib/index.js DEFAULT_PROVIDERS). Adding a
+# new backend = add a provider entry to the plugin config AND a tool-subagent
+# node below.
+- insert:
+    - id: subagent-cli
+      name: 'dsh-subagent'
+
+    - id: tool-subagent-qoder
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: qoder
+        toolName: qoder
+        # External one-shot CLIs advertise no depthLimit capability, so the
+        # recursion budget must be left to the provider (numeric maxDepth here
+        # would fail provider preflight at registration).
+        maxDepth: provider-managed
+
+    - id: tool-subagent-qodercn
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: qodercn
+        toolName: qodercn
+        maxDepth: provider-managed
