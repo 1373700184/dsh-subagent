@@ -1,23 +1,31 @@
 {
   "name": "dsh-subagent",
-  "version": "0.1.1",
-  "description": "Aggregate external subscription CLIs (Qoder, QoderCN, and more) as dsh subagent providers, delegating tasks through dsh-tool-subagent",
+  "version": "0.2.0",
+  "description": "Aggregate external subscription CLIs (Qoder, QoderCN, and more) as dsh subagent providers, with a settings page for model/effort/context control",
   "type": "module",
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",
+    "./client": "./lib/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "files": [
     "lib/*.js",
+    "src/*.js",
     "cordis.patch.yml",
     "README.md"
   ],
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
     }
+  },
+  "scripts": {
+    "build": "node scripts/build-client.mjs"
   },
   "keywords": [
     "dsh-plugin",
@@ -38,5 +46,14 @@
     "@deepseek-ai/dsh-subagent": "0.2.1-rc.2",
     "@deepseek-ai/dsh-tool-subagent": "0.2.1-rc.2",
     "@deepseek-ai/schemastery": "^3.18.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "react": "^18.2.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

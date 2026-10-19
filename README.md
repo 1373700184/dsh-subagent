@@ -24,6 +24,15 @@ dsh plugin --profile web add github:1373700184/dsh-subagent
 
 父 agent 会调用 `qoder` 工具,插件 spawn `qodercli -p ...` 并返回子代理的最终文本。`qodercn` 工具走国内版 CLI。
 
+## 设置页
+
+web 版 dsh 的 **设置 → Qoder 子代理** 页面可以直接:
+
+- 检测每个后端 CLI 是否存在、版本号、模型列表(走 `/api/qoder-subagent/probe`,5 分钟缓存,可手动刷新)
+- 切换默认模型、思考程度(`--reasoning-effort`)、上下文大小(`--context-window`)、权限模式、超时、CLI 路径
+
+写回即生效(host 配置热更新),无需改 YAML。
+
 ## 配置
 
 在 profile 里覆盖 `dsh-subagent` 节点的 `config`(`providers` 数组,每项一个后端):
@@ -35,6 +44,8 @@ dsh plugin --profile web add github:1373700184/dsh-subagent
 | `binary` | 自动探测 | CLI 绝对路径;内置名(qoder/qodercn)可省略 |
 | `permissionMode` | `bypass_permissions` | headless 无法弹权限确认,故默认放行 |
 | `model` | 沿用 CLI 默认 | 强制模型 id;留空用 CLI 默认(如免费模型) |
+| `reasoningEffort` | `auto` | `auto/none/low/medium/high/xhigh/max/ultracode` |
+| `contextWindow` | CLI 默认 | 正整数 token 数 |
 | `timeoutSeconds` | 无上限 | 单次委派墙钟上限 |
 | `extraArgs` | `[]` | 追加的 CLI 参数 |
 
