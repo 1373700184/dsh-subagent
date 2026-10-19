@@ -8,8 +8,13 @@ import React from "react";
 * @module dsh-subagent/client
 */
 const name = "qoder-subagent-client";
-const inject = ["slots", "configForms", "connection"];
+const inject = ["slots", "locale", "configForms", "connection"];
 const ENTRY_ID = "subagent-cli";
+const LOCALE_NS = "settings.qoderSubagent";
+const LOCALES = {
+	zh: { meta: { title: "Qoder 子代理", description: "把任务委派给本机 Qoder 系 CLI,消耗会员额度。" }, nav: "Qoder 子代理" },
+	en: { meta: { title: "Qoder Subagents", description: "Delegate tasks to local Qoder CLIs and spend their subscription quotas." }, nav: "Qoder Subagents" },
+};
 const REASONING_EFFORTS = ["auto", "none", "low", "medium", "high", "xhigh", "max", "ultracode"];
 const PERMISSION_MODES = ["bypass_permissions", "dont_ask", "auto", "accept_edits", "default"];
 
@@ -133,10 +138,12 @@ function QoderSection({ form, connection }) {
 
 function apply(ctx) {
 	const form = ctx.configForms.get(ENTRY_ID);
+	ctx.effect(() => ctx.locale.register(LOCALE_NS, LOCALES), "qoder-subagent: copy");
 	ctx.slots.inject("settings.section", () => ctx.slots.register({
 		name: "settings.section",
 		id: "qoder-subagent",
 		order: 16,
+		locale: LOCALE_NS,
 		label: () => "Qoder 子代理",
 		inject: () => ({ form, connection: ctx.get("connection") }),
 	}, QoderSection));

@@ -1,6 +1,6 @@
 {
   "name": "dsh-subagent",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Aggregate external subscription CLIs (Qoder, QoderCN, and more) as dsh subagent providers, with a settings page for model/effort/context control",
   "type": "module",
   "main": "./lib/index.js",
@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
+    "puppeteer-core": "^25.14.0",
     "react": "^18.2.0"
   },
   "pnpm": {
