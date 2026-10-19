@@ -7,7 +7,7 @@
 ## 安装
 
 ```sh
-dsh plugin --profile web add github:<你的用户名>/dsh-subagent
+dsh plugin --profile web add github:1373700184/dsh-subagent
 ```
 
 装好后插件的 `cordis.patch.yml` 会向 profile 树插入三个节点:提供方 `dsh-subagent`,以及两个委派工具 `qoder`、`qodercn`(各绑一个 `@deepseek-ai/dsh-tool-subagent` 实例)。重启 dsh 生效。
