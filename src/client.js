@@ -24,6 +24,8 @@ const STYLE = `
 .qsub-control { height: 32px; padding: 0 10px; border-radius: 8px; box-sizing: border-box; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-size: 13px; outline: none; transition: border-color .15s, box-shadow .15s; }
 .qsub-control:hover { border-color: var(--dsw-alias-border-l3); }
 .qsub-control:focus { border-color: var(--dsw-alias-brand-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 14%, transparent); }
+.qsub-control:disabled { opacity: .45; cursor: not-allowed; background: var(--dsw-alias-bg-overlay); }
+.qsub-btn:disabled { opacity: .45; cursor: not-allowed; }
 .qsub-control::placeholder { color: var(--dsw-alias-label-primary); opacity: .35; }
 .qsub-select { min-width: 220px; padding-right: 6px; }
 .qsub-number { width: 140px; }
@@ -102,6 +104,7 @@ function ProviderCard({ spec, index, form, connection }) {
 	};
 
 	const info = probe.value;
+	const disabled = probe.status === "loading";
 	const field = (name, control, hint) => h("div", { className: "qsub-field" },
 		h("span", { className: "qsub-label" }, name),
 		control,
@@ -117,25 +120,25 @@ function ProviderCard({ spec, index, form, connection }) {
 				: h("span", { className: "qsub-bad" }, "未找到 CLI")),
 			saving > 0 && h("span", { className: "qsub-hint", style: { color: "var(--dsw-alias-brand-primary)" } }, "保存中…"),
 			saveError && h("span", { className: "qsub-bad" }, saveError),
-			h("button", { type: "button", onClick: refresh, className: "qsub-btn", style: { marginLeft: "auto" } }, "刷新"),
+			h("button", { type: "button", onClick: refresh, className: "qsub-btn", disabled, style: { marginLeft: "auto" } }, "刷新"),
 		),
 		probe.status === "ready" && h("div", { className: "qsub-hint qsub-mono", style: { marginBottom: 12, wordBreak: "break-all" } }, info.binary ?? "未解析到路径"),
-		field("模型", h("select", { className: "qsub-control qsub-select", value: spec.model ?? "", onChange: setField("model") },
+		field("模型", h("select", { className: "qsub-control qsub-select", value: spec.model ?? "", onChange: setField("model"), disabled },
 			h("option", { value: "" }, "(CLI 默认)"),
 			(info?.models ?? (spec.model ? [spec.model] : [])).map((model) => {
 				const rate = info?.rates?.[model];
 				return h("option", { key: model, value: model }, rate ? `${model}  ·  ${rate} 额度` : model);
 			}),
 		)),
-		field("思考程度", h("select", { className: "qsub-control qsub-select", value: spec.reasoningEffort ?? "auto", onChange: setField("reasoningEffort") },
+		field("思考程度", h("select", { className: "qsub-control qsub-select", value: spec.reasoningEffort ?? "auto", onChange: setField("reasoningEffort"), disabled },
 			REASONING_EFFORTS.map((level) => h("option", { key: level, value: level }, level)),
 		)),
-		field("上下文大小", h("input", { className: "qsub-control qsub-number", type: "number", min: 1000, step: 1000, placeholder: "默认", value: spec.contextWindow ?? "", onChange: setField("contextWindow") }), "tokens,留空用默认"),
-		field("权限模式", h("select", { className: "qsub-control qsub-select", value: spec.permissionMode ?? "bypass_permissions", onChange: setField("permissionMode") },
+		field("上下文大小", h("input", { className: "qsub-control qsub-number", type: "number", min: 1000, step: 1000, placeholder: "默认", value: spec.contextWindow ?? "", onChange: setField("contextWindow"), disabled }), "tokens,留空用默认"),
+		field("权限模式", h("select", { className: "qsub-control qsub-select", value: spec.permissionMode ?? "bypass_permissions", onChange: setField("permissionMode"), disabled },
 			PERMISSION_MODES.map(([value, label]) => h("option", { key: value, value }, `${label}(${value})`)),
 		)),
-		field("超时", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "不限", value: spec.timeoutSeconds ?? "", onChange: setField("timeoutSeconds") }), "秒"),
-		field("CLI 路径", h("input", { className: "qsub-control qsub-path", type: "text", placeholder: "自动探测", value: spec.binary ?? "", onChange: setField("binary") })),
+		field("超时", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "不限", value: spec.timeoutSeconds ?? "", onChange: setField("timeoutSeconds"), disabled }), "秒"),
+		field("CLI 路径", h("input", { className: "qsub-control qsub-path", type: "text", placeholder: "自动探测", value: spec.binary ?? "", onChange: setField("binary"), disabled })),
 	);
 }
 
