@@ -98,7 +98,10 @@ function ProviderCard({ spec, index, form, connection }) {
 		probe.status === "ready" && h("div", { className: "qsub-hint qsub-mono", style: { marginBottom: 12, wordBreak: "break-all" } }, info.binary ?? "未解析到路径"),
 		field("模型", h("select", { className: "qsub-control qsub-select", value: spec.model ?? "", onChange: setField("model") },
 			h("option", { value: "" }, "(CLI 默认)"),
-			(info?.models ?? (spec.model ? [spec.model] : [])).map((model) => h("option", { key: model, value: model }, model)),
+			(info?.models ?? (spec.model ? [spec.model] : [])).map((model) => {
+				const rate = info?.rates?.[model];
+				return h("option", { key: model, value: model }, rate ? `${model}  ·  ${rate} 额度` : model);
+			}),
 		)),
 		field("思考程度", h("select", { className: "qsub-control qsub-select", value: spec.reasoningEffort ?? "auto", onChange: setField("reasoningEffort") },
 			REASONING_EFFORTS.map((level) => h("option", { key: level, value: level }, level)),
@@ -172,6 +175,13 @@ function QoderToolView({ block, connection }) {
 	const allEvents = run?.events ?? [];
 	const shown = open ? allEvents : allEvents.slice(-6);
 	const kindIcon = { tool: "⚙", text: "▸", think: "◎", result: "✔", error: "✖" };
+	const creditsText = run?.credits
+		? run.credits.total > 0
+			? `${run.credits.total.toFixed(4)} 额度`
+			: run.credits.billable === false
+				? "免费"
+				: "0 额度"
+		: null;
 	return h("div", { style: { fontSize: 13, lineHeight: 1.5 } },
 		h("div", {
 			style: { display: "flex", gap: 8, alignItems: "baseline", cursor: "pointer", userSelect: "none" },
@@ -182,6 +192,7 @@ function QoderToolView({ block, connection }) {
 			h("span", { style: { fontWeight: 600 } }, run?.provider ?? "qoder"),
 			h("span", { style: { color: badge[1] } }, badge[0]),
 			h("span", { style: { opacity: 0.55 } }, `${seconds}s`),
+			creditsText ? h("span", { style: { opacity: 0.55 } }, `· ${creditsText}`) : null,
 			run?.label ? h("span", { style: { opacity: 0.55 } }, `· ${run.label}`) : null,
 			h("span", { style: { opacity: 0.45, marginLeft: "auto" } }, `${allEvents.length} 步`),
 		),
