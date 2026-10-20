@@ -36,6 +36,12 @@ const STYLE = `
 .qsub-ok { color: #3f9d5a; }
 .qsub-bad { color: #e5533c; }
 .qsub-mono { font-family: ui-monospace, Consolas, monospace; }
+.qsub-toolbar { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 10px; }
+.qsub-active-btn { background: var(--dsw-alias-bg-overlay); border-color: var(--dsw-alias-border-l3); font-weight: 600; }
+.qsub-tabs { display: flex; gap: 2px; margin-bottom: 12px; border-bottom: 1px solid var(--dsw-alias-border-l2); }
+.qsub-tab { background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 14px; color: var(--dsw-alias-label-primary); opacity: .6; font-size: 13px; cursor: pointer; }
+.qsub-tab:hover { opacity: .85; }
+.qsub-tab-on { opacity: 1; font-weight: 600; border-bottom-color: var(--dsw-alias-brand-primary); }
 `;
 const REASONING_EFFORTS = ["auto", "none", "low", "medium", "high", "xhigh", "max", "ultracode"];
 const PERMISSION_MODES = [
@@ -142,18 +148,54 @@ function ProviderCard({ spec, index, form, connection }) {
 	);
 }
 
+const LAYOUT_KEY = "qsub.layout";
+
 function QoderSection({ form, connection }) {
 	const subscribe = React.useCallback((cb) => form.subscribe(cb), [form]);
 	const getSnapshot = React.useCallback(() => form.getSnapshot(), [form]);
 	const snapshot = React.useSyncExternalStore(subscribe, getSnapshot);
+	const [layout, setLayout] = React.useState(() => {
+		try {
+			return localStorage.getItem(LAYOUT_KEY) === "tabs" ? "tabs" : "stack";
+		} catch {
+			return "stack";
+		}
+	});
+	const [active, setActive] = React.useState(0);
+	const chooseLayout = (value) => {
+		setLayout(value);
+		try {
+			localStorage.setItem(LAYOUT_KEY, value);
+		} catch {}
+	};
 	if (snapshot.status === "loading") return h("div", { style: { opacity: 0.6 } }, "加载配置…");
 	if (snapshot.status === "unavailable") return h("div", null, "dsh-subagent 配置未挂载(检查 profile bundles)。");
 	const providers = snapshot.value?.providers ?? [];
 	if (providers.length === 0) return h("div", null, "未配置任何后端(配置 providers 数组)。");
+	const current = Math.min(active, providers.length - 1);
+	const layoutButton = (value, label) => h("button", {
+		type: "button",
+		className: `qsub-btn${layout === value ? " qsub-active-btn" : ""}`,
+		onClick: () => chooseLayout(value),
+	}, label);
 	return h("div", { style: { maxWidth: 640 } },
 		h("h2", null, "自由子代理"),
 		h("p", { className: "qsub-hint", style: { fontSize: 13 } }, "把任务委派给本机已登录的外部 CLI 子代理(当前:qoder / qodercn),消耗各自会员额度。子代理看不到当前对话,委派内容需自带完整上下文。"),
-		providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection })),
+		h("div", { className: "qsub-toolbar" },
+			layoutButton("stack", "堆叠"),
+			layoutButton("tabs", "标签页"),
+		),
+		layout === "tabs" && h("div", { className: "qsub-tabs" },
+			providers.map((spec, index) => h("button", {
+				key: `${spec.name}:${index}`,
+				type: "button",
+				className: `qsub-tab${index === current ? " qsub-tab-on" : ""}`,
+				onClick: () => setActive(index),
+			}, spec.name)),
+		),
+		layout === "tabs"
+			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection })
+			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection })),
 	);
 }
 
