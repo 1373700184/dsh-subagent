@@ -56,6 +56,9 @@ function callRpc(connection, endpoint, payload) {
 /** One backend card: probe facts plus config controls writing to `providers[i]`. */
 function ProviderCard({ spec, index, form, connection }) {
 	const [probe, setProbe] = React.useState({ status: "idle" });
+	const [saving, setSaving] = React.useState(0);
+	const [saveError, setSaveError] = React.useState("");
+	const debounceTimers = React.useRef({});
 	const probeKey = `${spec.name}|${spec.binary ?? ""}`;
 	React.useEffect(() => {
 		let alive = true;
@@ -71,12 +74,25 @@ function ProviderCard({ spec, index, form, connection }) {
 	const write = (patch) => {
 		const current = form.getSnapshot().value ?? {};
 		const providers = (current.providers ?? []).map((entry, i) => (i === index ? { ...entry, ...patch } : entry));
-		void form.set("providers", providers);
+		setSaving((n) => n + 1);
+		setSaveError("");
+		form.set("providers", providers)
+			.then((ok) => {
+				if (!ok) setSaveError("保存被拒绝");
+			})
+			.catch((error) => setSaveError(`保存失败: ${String(error?.message ?? error).slice(0, 120)}`))
+			.finally(() => setSaving((n) => Math.max(0, n - 1)));
 	};
 	const setField = (key) => (event) => {
 		const raw = event.target.value;
-		if (key === "contextWindow" || key === "timeoutSeconds") write({ [key]: raw === "" ? undefined : Number(raw) });
-		else write({ [key]: raw === "" ? undefined : raw });
+		const value = key === "contextWindow" || key === "timeoutSeconds" ? (raw === "" ? undefined : Number(raw)) : raw === "" ? undefined : raw;
+		const debounce = key === "contextWindow" || key === "timeoutSeconds" || key === "binary" ? 400 : 0;
+		if (debounce === 0) {
+			write({ [key]: value });
+			return;
+		}
+		clearTimeout(debounceTimers.current[key]);
+		debounceTimers.current[key] = setTimeout(() => write({ [key]: value }), debounce);
 	};
 	const refresh = () => {
 		setProbe({ status: "loading" });
@@ -99,6 +115,8 @@ function ProviderCard({ spec, index, form, connection }) {
 			probe.status === "ready" && (info.exists
 				? h("span", { className: "qsub-ok" }, `已安装 · v${info.version ?? "?"}`)
 				: h("span", { className: "qsub-bad" }, "未找到 CLI")),
+			saving > 0 && h("span", { className: "qsub-hint", style: { color: "var(--dsw-alias-brand-primary)" } }, "保存中…"),
+			saveError && h("span", { className: "qsub-bad" }, saveError),
 			h("button", { type: "button", onClick: refresh, className: "qsub-btn", style: { marginLeft: "auto" } }, "刷新"),
 		),
 		probe.status === "ready" && h("div", { className: "qsub-hint qsub-mono", style: { marginBottom: 12, wordBreak: "break-all" } }, info.binary ?? "未解析到路径"),
