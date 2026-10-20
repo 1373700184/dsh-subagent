@@ -36,7 +36,13 @@ const STYLE = `
 .qsub-mono { font-family: ui-monospace, Consolas, monospace; }
 `;
 const REASONING_EFFORTS = ["auto", "none", "low", "medium", "high", "xhigh", "max", "ultracode"];
-const PERMISSION_MODES = ["bypass_permissions", "dont_ask", "auto", "accept_edits", "default"];
+const PERMISSION_MODES = [
+	["bypass_permissions", "完全放行(跳过权限检查)"],
+	["auto", "自动判断"],
+	["accept_edits", "自动接受编辑"],
+	["dont_ask", "不询问"],
+	["default", "默认"],
+];
 
 const h = React.createElement;
 
@@ -108,7 +114,7 @@ function ProviderCard({ spec, index, form, connection }) {
 		)),
 		field("上下文大小", h("input", { className: "qsub-control qsub-number", type: "number", min: 1000, step: 1000, placeholder: "默认", value: spec.contextWindow ?? "", onChange: setField("contextWindow") }), "tokens,留空用默认"),
 		field("权限模式", h("select", { className: "qsub-control qsub-select", value: spec.permissionMode ?? "bypass_permissions", onChange: setField("permissionMode") },
-			PERMISSION_MODES.map((mode) => h("option", { key: mode, value: mode }, mode)),
+			PERMISSION_MODES.map(([value, label]) => h("option", { key: value, value }, `${label}(${value})`)),
 		)),
 		field("超时", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "不限", value: spec.timeoutSeconds ?? "", onChange: setField("timeoutSeconds") }), "秒"),
 		field("CLI 路径", h("input", { className: "qsub-control qsub-path", type: "text", placeholder: "自动探测", value: spec.binary ?? "", onChange: setField("binary") })),
