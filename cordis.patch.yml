@@ -23,3 +23,17 @@
         provider: qodercn
         toolName: qodercn
         maxDepth: provider-managed
+
+    - id: tool-subagent-opencode
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: opencode
+        toolName: opencode
+        maxDepth: provider-managed
+
+    - id: tool-subagent-pi
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: pi
+        toolName: pi
+        maxDepth: provider-managed

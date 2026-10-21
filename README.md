@@ -1,8 +1,8 @@
 # dsh-subagent
 
-把外部订阅版 CLI(Qoder / QoderCN,以后可加更多)注册成 dsh(DeepSeek Harness)的**子代理提供方**,让父 agent 通过委派工具把任务交给这些 CLI 跑,消耗各自的订阅额度。
+把外部 CLI 子代理(Qoder、QoderCN、OpenCode、Pi,可继续扩展)注册成 dsh(DeepSeek Harness)的**子代理提供方**,让父 agent 通过委派工具把任务交给这些 CLI 跑,消耗各自的订阅额度。
 
-每个后端都是**一次性执行**:插件 spawn CLI 子进程,提示词经 stdin 送入,读取 Claude 风格的 `stream-json` 事件流,收敛到最终结果。子代理**看不到父会话上下文**,所以委派任务里要自带完整上下文。
+每个后端都是**一次性执行**:插件 spawn CLI 子进程,提示词经 stdin 送入,读取各自的 JSON 事件流(`qoder-json` / `opencode-json` / `pi-json` 三种驱动),收敛到最终结果。子代理**看不到父会话上下文**,所以委派任务里要自带完整上下文。
 
 ## 安装
 
@@ -12,7 +12,7 @@ dsh plugin --profile web add github:1373700184/dsh-subagent
 
 装好后插件的 `cordis.patch.yml` 会向 profile 树插入三个节点:提供方 `dsh-subagent`,以及两个委派工具 `qoder`、`qodercn`(各绑一个 `@deepseek-ai/dsh-tool-subagent` 实例)。重启 dsh 生效。
 
-前置条件:对应 CLI 已安装且已登录(`qodercli` 在 `~/.qoder/bin/qodercli/`,`qoderclicn` 在 `~/.qoder-cn/bin/qoderclicn/`)。
+前置条件:对应 CLI 已安装且已登录——`qodercli`(`~/.qoder/bin/qodercli/`)、`qoderclicn`(`~/.qoder-cn/bin/qoderclicn/`)、`opencode`(`~/.opencode/bin/`)、`pi`(`~/.pi/agent/bin/`,通过 node + `pi-launcher.js` 启动)。
 
 ## 使用
 
@@ -61,7 +61,7 @@ web 版 dsh 的 **设置 → Qoder 子代理** 页面可以直接:
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `name` | 必填 | 提供方名,须与 patch 里 `dsh-tool-subagent` 的 `provider` 一致 |
-| `driver` | `qoder-json` | 传输驱动;目前仅实现 `qoder-json` |
+| `driver` | `qoder-json` | 传输驱动:`qoder-json` / `opencode-json` / `pi-json` |
 | `binary` | 自动探测 | CLI 绝对路径;内置名(qoder/qodercn)可省略 |
 | `permissionMode` | `bypass_permissions` | headless 无法弹权限确认,故默认放行 |
 | `model` | 沿用 CLI 默认 | 强制模型 id;留空用 CLI 默认(如免费模型) |

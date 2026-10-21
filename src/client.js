@@ -289,7 +289,9 @@ function QoderToolView({ block, connection }) {
 			: run.credits.billable === false
 				? "免费"
 				: "0 额度"
-		: null;
+		: typeof run?.costUsd === "number"
+			? `$${run.costUsd.toFixed(4)}`
+			: null;
 	const idleSeconds = run && running ? Math.max(0, Math.round((Date.now() - (allEvents.at(-1)?.t ?? run.startedAt)) / 1000)) : 0;
 	const stallLimit = run?.stallWarnSeconds ?? 90;
 	const stalled = running && stallLimit > 0 && idleSeconds >= stallLimit;
