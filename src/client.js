@@ -73,7 +73,6 @@ function ProviderCard({ spec, index, form, connection }) {
 	const [probe, setProbe] = React.useState({ status: "idle" });
 	const [saving, setSaving] = React.useState(0);
 	const [saveError, setSaveError] = React.useState("");
-	const debounceTimers = React.useRef({});
 	const probeKey = `${spec.name}|${spec.binary ?? ""}`;
 	React.useEffect(() => {
 		let alive = true;
@@ -100,15 +99,32 @@ function ProviderCard({ spec, index, form, connection }) {
 	};
 	const setField = (key) => (event) => {
 		const raw = event.target.value;
-		const numeric = key === "contextWindow" || key === "timeoutSeconds" || key === "stallWarnSeconds" || key === "allowedWaitSeconds";
-		const value = numeric ? (raw === "" ? undefined : Number(raw)) : raw === "" ? undefined : raw;
-		const debounce = numeric || key === "binary" ? 400 : 0;
-		if (debounce === 0) {
-			write({ [key]: value });
-			return;
-		}
-		clearTimeout(debounceTimers.current[key]);
-		debounceTimers.current[key] = setTimeout(() => write({ [key]: value }), debounce);
+		write({ [key]: raw === "" ? undefined : raw });
+	};
+	const [drafts, setDrafts] = React.useState({});
+	/** Text/number inputs edit a local draft and commit on blur or Enter only. */
+	const draftProps = (key, commit) => ({
+		value: drafts[key] ?? (spec[key] ?? ""),
+		onChange: (event) => setDrafts((current) => ({ ...current, [key]: event.target.value })),
+		onBlur: () => {
+			if (drafts[key] === undefined) return;
+			commit(drafts[key]);
+			setDrafts((current) => {
+				const next = { ...current };
+				delete next[key];
+				return next;
+			});
+		},
+		onKeyDown: (event) => {
+			if (event.key === "Enter") event.currentTarget.blur();
+		},
+	});
+	const commitNumber = (key, min = 1) => (raw) => {
+		const text = String(raw).trim();
+		if (text === "") return write({ [key]: undefined });
+		const value = Number(text);
+		if (!Number.isFinite(value) || value < min) return;
+		write({ [key]: value });
 	};
 	const refresh = () => {
 		setProbe({ status: "loading" });
@@ -176,14 +192,14 @@ function ProviderCard({ spec, index, form, connection }) {
 		field("思考程度", h("select", { className: "qsub-control qsub-select", value: spec.reasoningEffort ?? "auto", onChange: setField("reasoningEffort"), disabled },
 			REASONING_EFFORTS.map((level) => h("option", { key: level, value: level }, level)),
 		)),
-		field("上下文大小", h("input", { className: "qsub-control qsub-number", type: "number", min: 1000, step: 1000, placeholder: "默认", value: spec.contextWindow ?? "", onChange: setField("contextWindow"), disabled }), "tokens,留空用默认"),
+		field("上下文大小", h("input", { className: "qsub-control qsub-number", type: "number", min: 1000, step: 1000, placeholder: "默认", ...draftProps("contextWindow", commitNumber("contextWindow")), disabled }), "tokens,留空用默认"),
 		field("权限模式", h("select", { className: "qsub-control qsub-select", value: spec.permissionMode ?? "bypass_permissions", onChange: setField("permissionMode"), disabled },
 			PERMISSION_MODES.map(([value, label]) => h("option", { key: value, value }, `${label}(${value})`)),
 		)),
-		field("单模型等待", h("input", { className: "qsub-control qsub-number", type: "number", min: 0, placeholder: "90", value: spec.stallWarnSeconds ?? "", onChange: setField("stallWarnSeconds"), disabled }), "秒无输出则切换下一个模型,0 关闭"),
-		field("允许等待", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "300", value: spec.allowedWaitSeconds ?? "", onChange: setField("allowedWaitSeconds"), disabled }), "秒,整条链共用;超时直接上报主任务"),
-		field("超时", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "不限", value: spec.timeoutSeconds ?? "", onChange: setField("timeoutSeconds"), disabled }), "秒"),
-		field("CLI 路径", h("input", { className: "qsub-control qsub-path", type: "text", placeholder: "自动探测", value: spec.binary ?? "", onChange: setField("binary"), disabled })),
+		field("单模型等待", h("input", { className: "qsub-control qsub-number", type: "number", min: 0, placeholder: "90", ...draftProps("stallWarnSeconds", commitNumber("stallWarnSeconds", 0)), disabled }), "秒无输出则切换下一个模型,0 关闭"),
+		field("允许等待", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "300", ...draftProps("allowedWaitSeconds", commitNumber("allowedWaitSeconds")), disabled }), "秒,整条链共用;超时直接上报主任务"),
+		field("超时", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "不限", ...draftProps("timeoutSeconds", commitNumber("timeoutSeconds")), disabled }), "秒"),
+		field("CLI 路径", h("input", { className: "qsub-control qsub-path", type: "text", placeholder: "自动探测", ...draftProps("binary", (raw) => write({ binary: String(raw).trim() || undefined })), disabled })),
 	);
 }
 
