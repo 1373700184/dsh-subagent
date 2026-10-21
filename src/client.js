@@ -93,8 +93,9 @@ function ProviderCard({ spec, index, form, connection }) {
 	};
 	const setField = (key) => (event) => {
 		const raw = event.target.value;
-		const value = key === "contextWindow" || key === "timeoutSeconds" ? (raw === "" ? undefined : Number(raw)) : raw === "" ? undefined : raw;
-		const debounce = key === "contextWindow" || key === "timeoutSeconds" || key === "binary" ? 400 : 0;
+		const numeric = key === "contextWindow" || key === "timeoutSeconds" || key === "stallWarnSeconds";
+		const value = numeric ? (raw === "" ? undefined : Number(raw)) : raw === "" ? undefined : raw;
+		const debounce = numeric || key === "binary" ? 400 : 0;
 		if (debounce === 0) {
 			write({ [key]: value });
 			return;
@@ -144,6 +145,7 @@ function ProviderCard({ spec, index, form, connection }) {
 			PERMISSION_MODES.map(([value, label]) => h("option", { key: value, value }, `${label}(${value})`)),
 		)),
 		field("超时", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "不限", value: spec.timeoutSeconds ?? "", onChange: setField("timeoutSeconds"), disabled }), "秒"),
+		field("卡住提醒", h("input", { className: "qsub-control qsub-number", type: "number", min: 0, placeholder: "90", value: spec.stallWarnSeconds ?? "", onChange: setField("stallWarnSeconds"), disabled }), "秒无输出后提醒父代理,0 关闭"),
 		field("CLI 路径", h("input", { className: "qsub-control qsub-path", type: "text", placeholder: "自动探测", value: spec.binary ?? "", onChange: setField("binary"), disabled })),
 	);
 }
@@ -251,6 +253,9 @@ function QoderToolView({ block, connection }) {
 				? "免费"
 				: "0 额度"
 		: null;
+	const idleSeconds = run && running ? Math.max(0, Math.round((Date.now() - (allEvents.at(-1)?.t ?? run.startedAt)) / 1000)) : 0;
+	const stallLimit = run?.stallWarnSeconds ?? 90;
+	const stalled = running && stallLimit > 0 && idleSeconds >= stallLimit;
 	return h("div", { style: { fontSize: 13, lineHeight: 1.5 } },
 		h("div", {
 			style: { display: "flex", gap: 8, alignItems: "baseline", cursor: "pointer", userSelect: "none" },
@@ -261,6 +266,7 @@ function QoderToolView({ block, connection }) {
 			h("span", { style: { fontWeight: 600 } }, run?.provider ?? "qoder"),
 			h("span", { style: { color: badge[1] } }, badge[0]),
 			h("span", { style: { opacity: 0.55 } }, `${seconds}s`),
+			stalled ? h("span", { style: { color: "#e5533c" } }, `· 静默 ${idleSeconds}s`) : null,
 			creditsText ? h("span", { style: { opacity: 0.55 } }, `· ${creditsText}`) : null,
 			run?.label ? h("span", { style: { opacity: 0.55 } }, `· ${run.label}`) : null,
 			h("span", { style: { opacity: 0.45, marginLeft: "auto" } }, `${allEvents.length} 步`),
