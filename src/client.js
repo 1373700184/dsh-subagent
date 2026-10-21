@@ -42,6 +42,13 @@ const STYLE = `
 .qsub-tab { background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 14px; color: var(--dsw-alias-label-primary); opacity: .6; font-size: 13px; cursor: pointer; }
 .qsub-tab:hover { opacity: .85; }
 .qsub-tab-on { opacity: 1; font-weight: 600; border-bottom-color: var(--dsw-alias-brand-primary); }
+.qsub-model-list { flex: 1; min-width: 0; }
+.qsub-model-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+.qsub-model-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qsub-model-rate { font-size: 12px; opacity: .55; flex: none; }
+.qsub-icon-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--dsw-alias-border-l2); background: transparent; color: var(--dsw-alias-label-primary); cursor: pointer; font-size: 12px; line-height: 1; }
+.qsub-icon-btn:hover:not(:disabled) { background: var(--dsw-alias-bg-overlay); }
+.qsub-icon-btn:disabled { opacity: .3; cursor: not-allowed; }
 `;
 const REASONING_EFFORTS = ["auto", "none", "low", "medium", "high", "xhigh", "max", "ultracode"];
 const PERMISSION_MODES = [
@@ -93,7 +100,7 @@ function ProviderCard({ spec, index, form, connection }) {
 	};
 	const setField = (key) => (event) => {
 		const raw = event.target.value;
-		const numeric = key === "contextWindow" || key === "timeoutSeconds" || key === "stallWarnSeconds";
+		const numeric = key === "contextWindow" || key === "timeoutSeconds" || key === "stallWarnSeconds" || key === "allowedWaitSeconds";
 		const value = numeric ? (raw === "" ? undefined : Number(raw)) : raw === "" ? undefined : raw;
 		const debounce = numeric || key === "binary" ? 400 : 0;
 		if (debounce === 0) {
@@ -112,10 +119,19 @@ function ProviderCard({ spec, index, form, connection }) {
 
 	const info = probe.value;
 	const disabled = probe.status === "loading";
-	const field = (name, control, hint) => h("div", { className: "qsub-field" },
-		h("span", { className: "qsub-label" }, name),
+	const models = Array.isArray(spec.models) && spec.models.length > 0 ? spec.models : spec.model ? [spec.model] : [];
+	const writeModels = (next) => write({ models: next, model: undefined });
+	const moveModel = (index, delta) => {
+		const target = index + delta;
+		if (target < 0 || target >= models.length) return;
+		const next = [...models];
+		[next[index], next[target]] = [next[target], next[index]];
+		writeModels(next);
+	};
+	const field = (name, control, hint) => h("div", { className: "qsub-field", style: { alignItems: "flex-start" } },
+		h("span", { className: "qsub-label", style: { paddingTop: 6 } }, name),
 		control,
-		hint ? h("span", { className: "qsub-hint" }, hint) : null,
+		hint ? h("span", { className: "qsub-hint", style: { paddingTop: 6 } }, hint) : null,
 	);
 	return h("section", { key: spec.name, className: "qsub-card" },
 		h("div", { className: "qsub-head" },
@@ -130,13 +146,33 @@ function ProviderCard({ spec, index, form, connection }) {
 			h("button", { type: "button", onClick: refresh, className: "qsub-btn", disabled, style: { marginLeft: "auto" } }, "刷新"),
 		),
 		probe.status === "ready" && h("div", { className: "qsub-hint qsub-mono", style: { marginBottom: 12, wordBreak: "break-all" } }, info.binary ?? "未解析到路径"),
-		field("模型", h("select", { className: "qsub-control qsub-select", value: spec.model ?? "", onChange: setField("model"), disabled },
-			h("option", { value: "" }, "(CLI 默认)"),
-			(info?.models ?? (spec.model ? [spec.model] : [])).map((model) => {
-				const rate = info?.rates?.[model];
-				return h("option", { key: model, value: model }, rate ? `${model}  ·  ${rate} 额度` : model);
-			}),
-		)),
+		field("模型顺序",
+			h("div", { className: "qsub-model-list" },
+				models.length === 0 && h("div", { className: "qsub-hint", style: { marginBottom: 6 } }, "未指定(用 CLI 默认模型);没有备用模型可切换"),
+				models.map((model, position) => h("div", { key: `${model}:${position}`, className: "qsub-model-row" },
+					h("span", { className: "qsub-model-name" }, `${position + 1}. ${model}`),
+					h("span", { className: "qsub-model-rate" }, info?.rates?.[model] ? `${info.rates[model]} 额度` : ""),
+					h("button", { type: "button", className: "qsub-icon-btn", title: "上移", disabled: disabled || position === 0, onClick: () => moveModel(position, -1) }, "↑"),
+					h("button", { type: "button", className: "qsub-icon-btn", title: "下移", disabled: disabled || position === models.length - 1, onClick: () => moveModel(position, 1) }, "↓"),
+					h("button", { type: "button", className: "qsub-icon-btn", title: "移除", disabled, onClick: () => writeModels(models.filter((_, i) => i !== position)) }, "✕"),
+				)),
+				h("select", {
+					className: "qsub-control qsub-select",
+					style: { marginTop: 6, width: "100%" },
+					value: "",
+					disabled,
+					onChange: (event) => {
+						const model = event.target.value;
+						event.target.value = "";
+						if (model) writeModels([...models, model]);
+					},
+				},
+					h("option", { value: "" }, "+ 添加模型…"),
+					(info?.models ?? []).filter((model) => !models.includes(model)).map((model) => h("option", { key: model, value: model }, info?.rates?.[model] ? `${model} · ${info.rates[model]} 额度` : model)),
+				),
+				h("div", { className: "qsub-hint", style: { marginTop: 6 } }, "按顺序尝试,卡住自动切换下一个"),
+			),
+		),
 		field("思考程度", h("select", { className: "qsub-control qsub-select", value: spec.reasoningEffort ?? "auto", onChange: setField("reasoningEffort"), disabled },
 			REASONING_EFFORTS.map((level) => h("option", { key: level, value: level }, level)),
 		)),
@@ -144,8 +180,9 @@ function ProviderCard({ spec, index, form, connection }) {
 		field("权限模式", h("select", { className: "qsub-control qsub-select", value: spec.permissionMode ?? "bypass_permissions", onChange: setField("permissionMode"), disabled },
 			PERMISSION_MODES.map(([value, label]) => h("option", { key: value, value }, `${label}(${value})`)),
 		)),
+		field("单模型等待", h("input", { className: "qsub-control qsub-number", type: "number", min: 0, placeholder: "90", value: spec.stallWarnSeconds ?? "", onChange: setField("stallWarnSeconds"), disabled }), "秒无输出则切换下一个模型,0 关闭"),
+		field("允许等待", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "300", value: spec.allowedWaitSeconds ?? "", onChange: setField("allowedWaitSeconds"), disabled }), "秒,整条链共用;超时直接上报主任务"),
 		field("超时", h("input", { className: "qsub-control qsub-number", type: "number", min: 1, placeholder: "不限", value: spec.timeoutSeconds ?? "", onChange: setField("timeoutSeconds"), disabled }), "秒"),
-		field("卡住提醒", h("input", { className: "qsub-control qsub-number", type: "number", min: 0, placeholder: "90", value: spec.stallWarnSeconds ?? "", onChange: setField("stallWarnSeconds"), disabled }), "秒无输出后提醒父代理,0 关闭"),
 		field("CLI 路径", h("input", { className: "qsub-control qsub-path", type: "text", placeholder: "自动探测", value: spec.binary ?? "", onChange: setField("binary"), disabled })),
 	);
 }
