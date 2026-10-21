@@ -1,8 +1,8 @@
 # dsh-subagent
 
-把外部 CLI 子代理(Qoder、QoderCN、OpenCode、Pi,可继续扩展)注册成 dsh(DeepSeek Harness)的**子代理提供方**,让父 agent 通过委派工具把任务交给这些 CLI 跑,消耗各自的订阅额度。
+把外部 CLI 子代理(Qoder、QoderCN、OpenCode、Pi、CodeBuddy,可继续扩展)注册成 dsh(DeepSeek Harness)的**子代理提供方**,让父 agent 通过委派工具把任务交给这些 CLI 跑,消耗各自的订阅额度。
 
-每个后端都是**一次性执行**:插件 spawn CLI 子进程,提示词经 stdin 送入,读取各自的 JSON 事件流(`qoder-json` / `opencode-json` / `pi-json` 三种驱动),收敛到最终结果。子代理**看不到父会话上下文**,所以委派任务里要自带完整上下文。
+每个后端都是**一次性执行**:插件 spawn CLI 子进程,提示词经 stdin 送入,读取各自的 JSON 事件流(`qoder-json` / `codebuddy-json` / `opencode-json` / `pi-json` 驱动),收敛到最终结果。子代理**看不到父会话上下文**,所以委派任务里要自带完整上下文。
 
 ## 安装
 
@@ -12,7 +12,7 @@ dsh plugin --profile web add github:1373700184/dsh-subagent
 
 装好后插件的 `cordis.patch.yml` 会向 profile 树插入三个节点:提供方 `dsh-subagent`,以及两个委派工具 `qoder`、`qodercn`(各绑一个 `@deepseek-ai/dsh-tool-subagent` 实例)。重启 dsh 生效。
 
-前置条件:对应 CLI 已安装且已登录——`qodercli`(`~/.qoder/bin/qodercli/`)、`qoderclicn`(`~/.qoder-cn/bin/qoderclicn/`)、`opencode`(`~/.opencode/bin/`)、`pi`(`~/.pi/agent/bin/`,通过 node + `pi-launcher.js` 启动)。
+前置条件:对应 CLI 已安装且已登录——`qodercli`(`~/.qoder/bin/qodercli/`)、`qoderclicn`(`~/.qoder-cn/bin/qoderclicn/`)、`opencode`(`~/.opencode/bin/`)、`pi`(`~/.pi/agent/bin/`,通过 node + `pi-launcher.js` 启动)、`codebuddy`(npm 全局 `@tencent-ai/codebuddy-code`,通过 node 启动)。
 
 ## 使用
 
@@ -51,7 +51,7 @@ dsh plugin --profile web add github:1373700184/dsh-subagent
 安装插件即注册一个 **"自由子代理"** Agent 预设(设置 → Agent 预设)。选它开会话后,dsh 本地模型扮演**子代理指挥官**:
 
 - 规划任务、拆成可独立验收的子任务
-- 按性价比把子任务分派给 `qoder` / `qodercn` / `opencode` / `pi`(独立任务并行、有依赖的串行)
+- 按性价比把子任务分派给 `qoder` / `qodercn` / `opencode` / `pi` / `codebuddy`(独立任务并行、有依赖的串行)
 - 用 `free_subagent_status` 随时查进度,静默/失败时换模型或改派
 - 汇总产出、独立核验关键结论,再向用户汇报分工与风险
 
@@ -73,7 +73,7 @@ web 版 dsh 的 **设置 → Qoder 子代理** 页面可以直接:
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `name` | 必填 | 提供方名,须与 patch 里 `dsh-tool-subagent` 的 `provider` 一致 |
-| `driver` | `qoder-json` | 传输驱动:`qoder-json` / `opencode-json` / `pi-json` |
+| `driver` | `qoder-json` | 传输驱动:`qoder-json` / `codebuddy-json` / `opencode-json` / `pi-json` |
 | `binary` | 自动探测 | CLI 绝对路径;内置名(qoder/qodercn)可省略 |
 | `permissionMode` | `bypass_permissions` | headless 无法弹权限确认,故默认放行 |
 | `model` | 沿用 CLI 默认 | 强制模型 id;留空用 CLI 默认(如免费模型) |

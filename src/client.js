@@ -248,7 +248,7 @@ function QoderSection({ form, connection }) {
 	}, label);
 	return h("div", { style: { maxWidth: 640 } },
 		h("h2", null, "自由子代理"),
-		h("p", { className: "qsub-hint", style: { fontSize: 13 } }, "把任务委派给本机已登录的外部 CLI 子代理(当前:qoder / qodercn),消耗各自会员额度。子代理看不到当前对话,委派内容需自带完整上下文。"),
+		h("p", { className: "qsub-hint", style: { fontSize: 13 } }, "把任务委派给本机已登录的外部 CLI 子代理(当前:qoder / qodercn / opencode / pi / codebuddy),消耗各自会员额度。子代理看不到当前对话,委派内容需自带完整上下文。"),
 		h("div", { className: "qsub-toolbar" },
 			layoutButton("stack", "堆叠"),
 			layoutButton("tabs", "标签页"),

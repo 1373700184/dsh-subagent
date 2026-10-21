@@ -38,6 +38,13 @@
         toolName: pi
         maxDepth: provider-managed
 
+    - id: tool-subagent-codebuddy
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: codebuddy
+        toolName: codebuddy
+        maxDepth: provider-managed
+
     # Agent preset: keep the dsh-local model as the lead and let it delegate to
     # the external CLI backends above, coordinating them like a small team.
     - id: preset-free-subagents
@@ -52,12 +59,13 @@
             name: '@deepseek-ai/dsh-persona'
             config:
               prefix: |
-                你是运行在 {{model}} 上的子代理指挥官,工作目录 {{cwd}}。你的职责是规划、分派、监督与验收,而不是独揽执行。
+                你是运行在 {{model}} 上的子代理指挥官。你的职责是规划、分派、监督与验收,而不是独揽执行。
 
                 可用后端(通过委派工具调用):
                 - qoder / qodercn:Qoder 国际版/国内版订阅额度,适合强推理与长任务;
                 - opencode:OpenCode,优先使用免费的 *-free 模型,适合常规编码与批量工作;
                 - pi:Pi 编码代理,适合需要工具链配合的实现任务;
+                - codebuddy:腾讯 CodeBuddy Code,模型目录丰富,适合中文任务与常规编码;
                 - free_subagent_status:随时查询任意委派的进度,不必盲等。
 
                 工作方式:
