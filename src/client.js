@@ -201,11 +201,24 @@ function QoderSection({ form, connection }) {
 		}
 	});
 	const [active, setActive] = React.useState(0);
+	const [limitDraft, setLimitDraft] = React.useState(null);
+	const limitTimer = React.useRef(0);
+	const statusLimit = Number(snapshot.value?.statusListLimit ?? 16);
 	const chooseLayout = (value) => {
 		setLayout(value);
 		try {
 			localStorage.setItem(LAYOUT_KEY, value);
 		} catch {}
+	};
+	const changeLimit = (raw) => {
+		const value = Number(raw);
+		setLimitDraft(raw);
+		clearTimeout(limitTimer.current);
+		if (!Number.isFinite(value) || value < 1 || value > 24) return;
+		limitTimer.current = setTimeout(() => {
+			void form.set("statusListLimit", value);
+			setLimitDraft(null);
+		}, 500);
 	};
 	if (snapshot.status === "loading") return h("div", { style: { opacity: 0.6 } }, "加载配置…");
 	if (snapshot.status === "unavailable") return h("div", null, "dsh-subagent 配置未挂载(检查 profile bundles)。");
@@ -223,6 +236,18 @@ function QoderSection({ form, connection }) {
 		h("div", { className: "qsub-toolbar" },
 			layoutButton("stack", "堆叠"),
 			layoutButton("tabs", "标签页"),
+		),
+		h("div", { className: "qsub-field", style: { marginBottom: 12 } },
+			h("span", { className: "qsub-label" }, "状态列表条数"),
+			h("input", {
+				className: "qsub-control qsub-number",
+				type: "number",
+				min: 1,
+				max: 24,
+				value: limitDraft ?? statusLimit,
+				onChange: (event) => changeLimit(event.target.value),
+			}),
+			h("span", { className: "qsub-hint" }, "1-24,/free_subagent_status 列出最近 N 次运行"),
 		),
 		layout === "tabs" && h("div", { className: "qsub-tabs" },
 			providers.map((spec, index) => h("button", {
