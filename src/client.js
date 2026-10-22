@@ -5,7 +5,6 @@ import React from "react";
 * 列出所有已配置的 Qoder 系列后端,提供实时 CLI 探测(存在性、
 * 版本、模型目录),以及直接写回宿主插件配置的表单控件。
 * 写入通过 ctx.configForms 完成。
-* @module dsh-subagent/client
 */
 const name = "qoder-subagent-client";
 const inject = ["slots", "locale", "configForms", "connection"];

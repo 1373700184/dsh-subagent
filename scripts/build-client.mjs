@@ -12,8 +12,18 @@ await build({
 	charset: "utf8",
 });
 
-const code = await readFile("lib/client.raw.cjs", "utf8");
+const raw = await readFile("lib/client.raw.cjs", "utf8");
 await rm("lib/client.raw.cjs");
+
+// 构建产物只保留中文行注释，去掉 esbuild 自动生成的英文说明。
+const code = raw
+	.split("\n")
+	.filter((line) => {
+		const trimmed = line.trimStart();
+		return !(trimmed.startsWith("//") && !/[\u4e00-\u9fff]/.test(trimmed));
+	})
+	.join("\n");
+
 await writeFile(
 	"lib/client.js",
 	`window.__ModuleLoader__.load({
