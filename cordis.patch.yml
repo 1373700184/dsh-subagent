@@ -1,8 +1,7 @@
-# Registers the dsh-subagent provider plugin, then mounts one delegation tool
-# per configured backend. Each provider name here must match a provider the
-# plugin registers in its apply() (see lib/index.js DEFAULT_PROVIDERS). Adding a
-# new backend = add a provider entry to the plugin config AND a tool-subagent
-# node below.
+# 注册 dsh-subagent 提供方插件,再为每个已配置后端挂载一个委派工具。
+# 这里的 provider 名必须与插件 apply() 中注册的名称一致(见 lib/index.js 的
+# BUILTIN_PROVIDERS)。新增后端 = 在插件配置里加一条 provider,并在下面加一个
+# tool-subagent 节点。
 - insert:
     - id: subagent-cli
       name: 'dsh-subagent'
@@ -12,9 +11,8 @@
       config:
         provider: qoder
         toolName: qoder
-        # External one-shot CLIs advertise no depthLimit capability, so the
-        # recursion budget must be left to the provider (numeric maxDepth here
-        # would fail provider preflight at registration).
+        # 外部一次性 CLI 不支持 depthLimit 能力,因此递归预算必须交给
+        # provider 自行管理(这里写数字 maxDepth 会导致注册时预检失败)。
         maxDepth: provider-managed
 
     - id: tool-subagent-qodercn
@@ -45,14 +43,14 @@
         toolName: codebuddy
         maxDepth: provider-managed
 
-    # Agent preset: keep the dsh-local model as the lead and let it delegate to
-    # the external CLI backends above, coordinating them like a small team.
+    # Agent 预设:让 dsh 本地模型担任指挥,把任务委派给上面的外部 CLI 后端,
+    # 像一个小团队一样协调它们。
     - id: preset-free-subagents
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: free-subagents
         name: 自由子代理
-        description: dsh 本地模型做指挥,把任务分派给 Qoder / QoderCN / OpenCode / Pi 等外部 CLI 子代理并行执行并验收结果。
+        description: dsh 本地模型做指挥,把任务分派给已启用的外部 CLI 子代理并行执行并验收结果。
         order: 20
         plugins:
           - id: persona
@@ -61,11 +59,8 @@
               prefix: |
                 你是运行在 {{model}} 上的子代理指挥官。你的职责是规划、分派、监督与验收,而不是独揽执行。
 
-                可用后端(通过委派工具调用):
-                - qoder / qodercn:Qoder 国际版/国内版订阅额度,适合强推理与长任务;
-                - opencode:OpenCode,优先使用免费的 *-free 模型,适合常规编码与批量工作;
-                - pi:Pi 编码代理,适合需要工具链配合的实现任务;
-                - codebuddy:腾讯 CodeBuddy Code,模型目录丰富,适合中文任务与常规编码;
+                可用后端(通过委派工具调用;只使用下面列出的,未启用的后端不会出现):
+                {{subagentBackends}}
                 - free_subagent_status:随时查询任意委派的进度,不必盲等。
 
                 工作方式:

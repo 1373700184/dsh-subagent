@@ -1,10 +1,10 @@
 import React from "react";
 
 /**
-* Browser-side settings page for the dsh-subagent plugin: one settings section
-* listing every configured Qoder-family backend with live CLI probe (existence,
-* version, model catalog) and form controls that write straight back to the
-* host plugin config through ctx.configForms.
+* dsh-subagent 插件的浏览器端设置页:一个设置分区,
+* 列出所有已配置的 Qoder 系列后端,提供实时 CLI 探测(存在性、
+* 版本、模型目录),以及直接写回宿主插件配置的表单控件。
+* 写入通过 ctx.configForms 完成。
 * @module dsh-subagent/client
 */
 const name = "qoder-subagent-client";
@@ -15,7 +15,7 @@ const LOCALES = {
 	zh: { meta: { title: "自由子代理", description: "把任务委派给本机已登录的外部 CLI 子代理,消耗各自会员额度。" }, nav: "自由子代理" },
 	en: { meta: { title: "Free Subagents", description: "Delegate tasks to local external CLI subagents and spend their subscription quotas." }, nav: "Free Subagents" },
 };
-/** Host-matched controls: only --dsw-alias-* tokens, plugin-prefixed classes. */
+/** 与宿主一致的控件:仅使用 --dsw-alias-* 令牌和插件前缀的 class。 */
 const STYLE = `
 .qsub-card { border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
 .qsub-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -51,6 +51,14 @@ const STYLE = `
 .qsub-icon-btn:disabled { opacity: .3; cursor: not-allowed; }
 `;
 const REASONING_EFFORTS = ["auto", "none", "low", "medium", "high", "xhigh", "max", "ultracode"];
+/** 设置页可启用的内置后端;需与 lib/index.js 中的 BUILTIN_PROVIDERS 保持一致。 */
+const BUILTIN_BACKENDS = [
+	{ name: "qoder", driver: "qoder-json" },
+	{ name: "qodercn", driver: "qoder-json" },
+	{ name: "opencode", driver: "opencode-json" },
+	{ name: "pi", driver: "pi-json" },
+	{ name: "codebuddy", driver: "codebuddy-json" },
+];
 const PERMISSION_MODES = [
 	["bypass_permissions", "完全放行(跳过权限检查)"],
 	["auto", "自动判断"],
@@ -68,7 +76,7 @@ function callRpc(connection, endpoint, payload) {
 	});
 }
 
-/** One backend card: probe facts plus config controls writing to `providers[i]`. */
+/** 单个后端卡片:探测结果,以及写回 `providers[i]` 的配置控件。 */
 function ProviderCard({ spec, index, form, connection }) {
 	const [probe, setProbe] = React.useState({ status: "idle" });
 	const [saving, setSaving] = React.useState(0);
@@ -102,7 +110,7 @@ function ProviderCard({ spec, index, form, connection }) {
 		write({ [key]: raw === "" ? undefined : raw });
 	};
 	const [drafts, setDrafts] = React.useState({});
-	/** Text/number inputs edit a local draft and commit on blur or Enter only. */
+	/** 文本/数字输入先在本地草稿中编辑,仅在失焦或回车时提交。 */
 	const draftProps = (key, commit) => ({
 		value: drafts[key] ?? (spec[key] ?? ""),
 		onChange: (event) => setDrafts((current) => ({ ...current, [key]: event.target.value })),
@@ -203,6 +211,65 @@ function ProviderCard({ spec, index, form, connection }) {
 	);
 }
 
+/** 启用一个尚未加入配置的内置后端。 */
+function AddBackend({ options, form, connection }) {
+	const [probes, setProbes] = React.useState({});
+	const [saving, setSaving] = React.useState(false);
+	const [saveError, setSaveError] = React.useState("");
+	const names = options.map((option) => option.name).join(",");
+	React.useEffect(() => {
+		let alive = true;
+		setProbes({});
+		for (const option of options) {
+			callRpc(connection, "probe", { name: option.name })
+				.then((value) => alive && setProbes((current) => ({ ...current, [option.name]: value })))
+				.catch(() => alive && setProbes((current) => ({ ...current, [option.name]: { unavailable: true } })));
+		}
+		return () => {
+			alive = false;
+		};
+	}, [names, connection]);
+	const label = (option) => {
+		const info = probes[option.name];
+		if (!info) return `${option.name} · 检测中…`;
+		if (info.unavailable) return `${option.name} · 无法检测`;
+		if (!info.exists) return `${option.name} · 未找到 CLI`;
+		return `${option.name} · 已安装${info.version ? ` v${info.version}` : ""}`;
+	};
+	const add = (name) => {
+		const option = options.find((candidate) => candidate.name === name);
+		if (!option) return;
+		const current = form.getSnapshot().value ?? {};
+		const providers = [...(current.providers ?? []), { name: option.name, driver: option.driver }];
+		setSaving(true);
+		setSaveError("");
+		form.set("providers", providers)
+			.then((ok) => {
+				if (!ok) setSaveError("保存被拒绝");
+			})
+			.catch((error) => setSaveError(`保存失败: ${String(error?.message ?? error).slice(0, 120)}`))
+			.finally(() => setSaving(false));
+	};
+	return h("div", { className: "qsub-field", style: { alignItems: "flex-start", marginTop: 4 } },
+		h("span", { className: "qsub-label", style: { paddingTop: 6 } }, "添加内置后端"),
+		h("select", {
+			className: "qsub-control qsub-select",
+			value: "",
+			disabled: saving,
+			onChange: (event) => {
+				const name = event.target.value;
+				event.target.value = "";
+				if (name) add(name);
+			},
+		},
+			h("option", { value: "" }, saving ? "添加中…" : "+ 选择要启用的后端…"),
+			options.map((option) => h("option", { key: option.name, value: option.name }, label(option))),
+		),
+		saveError && h("span", { className: "qsub-bad", style: { paddingTop: 6 } }, saveError),
+		h("span", { className: "qsub-hint", style: { paddingTop: 6 } }, "只注册已添加的后端;装了但没添加的 CLI 不会出现在工具和指令里"),
+	);
+}
+
 const LAYOUT_KEY = "qsub.layout";
 
 function QoderSection({ form, connection }) {
@@ -239,8 +306,9 @@ function QoderSection({ form, connection }) {
 	if (snapshot.status === "loading") return h("div", { style: { opacity: 0.6 } }, "加载配置…");
 	if (snapshot.status === "unavailable") return h("div", null, "dsh-subagent 配置未挂载(检查 profile bundles)。");
 	const providers = snapshot.value?.providers ?? [];
-	if (providers.length === 0) return h("div", null, "未配置任何后端(配置 providers 数组)。");
-	const current = Math.min(active, providers.length - 1);
+	const configured = new Set(providers.map((spec) => spec.name));
+	const missing = BUILTIN_BACKENDS.filter((entry) => !configured.has(entry.name));
+	const current = Math.min(active, Math.max(0, providers.length - 1));
 	const layoutButton = (value, label) => h("button", {
 		type: "button",
 		className: `qsub-btn${layout === value ? " qsub-active-btn" : ""}`,
@@ -248,8 +316,8 @@ function QoderSection({ form, connection }) {
 	}, label);
 	return h("div", { style: { maxWidth: 640 } },
 		h("h2", null, "自由子代理"),
-		h("p", { className: "qsub-hint", style: { fontSize: 13 } }, "把任务委派给本机已登录的外部 CLI 子代理(当前:qoder / qodercn / opencode / pi / codebuddy),消耗各自会员额度。子代理看不到当前对话,委派内容需自带完整上下文。"),
-		h("div", { className: "qsub-toolbar" },
+		h("p", { className: "qsub-hint", style: { fontSize: 13 } }, `把任务委派给本机已登录的外部 CLI 子代理(当前启用:${providers.map((spec) => spec.name).join(" / ") || "无"}),消耗各自会员额度。子代理看不到当前对话,委派内容需自带完整上下文。`),
+		providers.length > 0 && h("div", { className: "qsub-toolbar" },
 			layoutButton("stack", "堆叠"),
 			layoutButton("tabs", "标签页"),
 		),
@@ -265,7 +333,8 @@ function QoderSection({ form, connection }) {
 			}),
 			h("span", { className: "qsub-hint" }, "1-24,/free_subagent_status 列出最近 N 次运行"),
 		),
-		layout === "tabs" && h("div", { className: "qsub-tabs" },
+		providers.length === 0 && h("div", { className: "qsub-hint", style: { marginBottom: 12 } }, "当前没有启用任何后端,从下方添加一个内置后端。"),
+		providers.length > 0 && layout === "tabs" && h("div", { className: "qsub-tabs" },
 			providers.map((spec, index) => h("button", {
 				key: `${spec.name}:${index}`,
 				type: "button",
@@ -273,13 +342,14 @@ function QoderSection({ form, connection }) {
 				onClick: () => setActive(index),
 			}, spec.name)),
 		),
-		layout === "tabs"
+		providers.length > 0 && (layout === "tabs"
 			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection })
-			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection })),
+			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection }))),
+		missing.length > 0 && h(AddBackend, { options: missing, form, connection }),
 	);
 }
 
-/** Expandable live progress panel for one background Qoder child run. */
+/** 单个后台 Qoder 子代理运行的可展开实时进度面板。 */
 function QoderToolView({ block, connection }) {
 	const settled = block?.kind === "tool-result";
 	const resultText = settled ? (block.content ?? []).find?.((item) => item?.type === "text")?.text ?? "" : "";
