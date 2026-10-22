@@ -53,15 +53,11 @@ done
 
 6. 自动重启 DshManger 托管的 dsh web：
 
-- 找到监听 `127.0.0.1:3080` 的 `node.exe`（命令行包含 `dsh\lib\bin.js web`）。
-- 结束该 node 进程及其 `cmd.exe` 父进程；不要结束 `DshManger.exe`。
-- 等待几秒，若 DshManger 没有自动拉起，在 `D:\DshManger` 下用隐藏窗口执行原启动命令：
-
-```bat
-cmd.exe /c ""C:\Users\a1373\AppData\Roaming\npm\dsh.cmd" web >> "C:\Users\a1373\AppData\Roaming\DshManger\dsh.log" 2>&1"
-```
-
-- 校验 `127.0.0.1:3080` 重新进入监听状态。
+- 找到监听 `127.0.0.1:3080` 的 `node.exe`（命令行包含 `dsh\lib\bin.js web`），只结束这个 node 进程（以及它由 DshManger 启动的 cmd 父进程，如存在）。
+- **不要结束 `DshManger.exe`，也不要自己用 cmd 或 Start-Process 再起一个 dsh**：DshManger 会在约 30 秒内自动拉起（实测约 30s）。等待并轮询 `127.0.0.1:3080` 恢复监听即可。
+- 严禁“等几秒没起来就手动起一份”——这会在用户桌面上留下一个多余的常驻 `cmd.exe` 窗口。
+- 只有在等待超过 60 秒仍未被拉起时，才直接以 node 启动（不经过 cmd），并用 WMI `Win32_Process.Create` 脱离当前进程树启动 `node "C:\Users\a1373\AppData\Roaming\npm\node_modules\@deepseek-ai\dsh\lib\bin.js" web`。
+- 校验 `127.0.0.1:3080` 重新进入监听状态，且进程树中只应有 DshManger 自己启动的 cmd → node。
 
 `desktop` profile 未安装此插件，不需要更新。
 
