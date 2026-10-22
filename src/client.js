@@ -49,7 +49,7 @@ const STYLE = `
 .qsub-icon-btn:hover:not(:disabled) { background: var(--dsw-alias-bg-overlay); }
 .qsub-icon-btn:disabled { opacity: .3; cursor: not-allowed; }
 .qsub-modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 3000; }
-.qsub-toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; padding: 8px 16px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 3100; }
+.qsub-toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l3); border-radius: 10px; padding: 10px 20px; font-size: 15px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 3100; }
 .qsub-modal { width: 520px; max-width: calc(100vw - 40px); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
 `;
 const REASONING_EFFORTS = ["auto", "none", "low", "medium", "high", "xhigh", "max", "ultracode"];
@@ -373,8 +373,14 @@ function QoderSection({ form, connection }) {
 	const [limitDraft, setLimitDraft] = React.useState(null);
 	const [customOpen, setCustomOpen] = React.useState(false);
 	const [toast, setToast] = React.useState("");
+	const [toastPos, setToastPos] = React.useState(null);
 	const toastTimer = React.useRef(0);
+	const rootRef = React.useRef(null);
 	const showToast = (text) => {
+		// Anchor to the settings dialog header instead of the viewport so the
+		// toast lands in the same place on every screen size.
+		const rect = rootRef.current?.closest?.('[role="dialog"]')?.getBoundingClientRect?.();
+		setToastPos(rect ? { left: Math.round(rect.left + rect.width / 2), top: Math.round(rect.top + 34) } : null);
 		setToast(text);
 		clearTimeout(toastTimer.current);
 		toastTimer.current = setTimeout(() => setToast(""), 2500);
@@ -408,7 +414,7 @@ function QoderSection({ form, connection }) {
 		const name = latest[index]?.name ?? "";
 		form.set("providers", latest.filter((_, i) => i !== index))
 			.then((ok) => {
-				if (ok) showToast(`已停用后端 ${name || "(未知)"}`);
+				if (ok) showToast(`✅ 已停用后端 ${name || "(未知)"}`);
 			})
 			.catch(() => {});
 	};
@@ -417,7 +423,7 @@ function QoderSection({ form, connection }) {
 		className: `qsub-btn${layout === value ? " qsub-active-btn" : ""}`,
 		onClick: () => chooseLayout(value),
 	}, label);
-	return h("div", { style: { maxWidth: 640 } },
+	return h("div", { style: { maxWidth: 640 }, ref: rootRef },
 		h("h2", null, "自由子代理"),
 		h("p", { className: "qsub-hint", style: { fontSize: 13 } }, `把任务委派给本机已登录的外部 CLI 子代理(当前启用:${providers.map((spec) => spec.name).join(" / ") || "无"}),消耗各自会员额度。子代理看不到当前对话,委派内容需自带完整上下文。`),
 		h("div", { className: "qsub-toolbar" },
@@ -450,7 +456,7 @@ function QoderSection({ form, connection }) {
 			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection, onRemove: () => removeProvider(current) })
 			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection, onRemove: () => removeProvider(index) }))),
 		customOpen && h(CustomBackendModal, { form, onClose: () => setCustomOpen(false) }),
-		toast ? h("div", { className: "qsub-toast" }, toast) : null,
+		toast ? h("div", { className: "qsub-toast", style: toastPos ? { left: toastPos.left, top: toastPos.top, transform: "translate(-50%, 0)" } : undefined }, toast) : null,
 	);
 }
 
