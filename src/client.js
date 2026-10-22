@@ -252,12 +252,13 @@ function AddBackend({ options, form, connection }) {
 			.catch((error) => setSaveError(`保存失败: ${String(error?.message ?? error).slice(0, 120)}`))
 			.finally(() => setSaving(false));
 	};
-	return h("div", { className: "qsub-field", style: { alignItems: "flex-start", marginTop: 4 } },
-		h("span", { className: "qsub-label", style: { paddingTop: 6 } }, "添加内置后端"),
+	return h(React.Fragment, null,
 		h("select", {
 			className: "qsub-control qsub-select",
+			style: { minWidth: 190 },
 			value: "",
 			disabled: saving,
+			title: "只注册已添加的后端;装了但没添加的 CLI 不会出现在工具和指令里",
 			onChange: (event) => {
 				const name = event.target.value;
 				event.target.value = "";
@@ -267,8 +268,7 @@ function AddBackend({ options, form, connection }) {
 			h("option", { value: "" }, saving ? "添加中…" : "+ 选择要启用的后端…"),
 			options.map((option) => h("option", { key: option.name, value: option.name }, label(option))),
 		),
-		saveError && h("span", { className: "qsub-bad", style: { paddingTop: 6 } }, saveError),
-		h("span", { className: "qsub-hint", style: { paddingTop: 6 } }, "只注册已添加的后端;装了但没添加的 CLI 不会出现在工具和指令里"),
+		saveError ? h("span", { className: "qsub-bad" }, saveError) : null,
 	);
 }
 
@@ -408,6 +408,7 @@ function QoderSection({ form, connection }) {
 		h("div", { className: "qsub-toolbar" },
 			providers.length > 0 && layoutButton("stack", "堆叠"),
 			providers.length > 0 && layoutButton("tabs", "标签页"),
+			missing.length > 0 && h(AddBackend, { options: missing, form, connection }),
 			h("button", { type: "button", className: "qsub-btn", onClick: () => setCustomOpen(true) }, "添加自定义后端…"),
 		),
 		h("div", { className: "qsub-field", style: { marginBottom: 12 } },
@@ -434,7 +435,6 @@ function QoderSection({ form, connection }) {
 		providers.length > 0 && (layout === "tabs"
 			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection, onRemove: () => removeProvider(current) })
 			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection, onRemove: () => removeProvider(index) }))),
-		missing.length > 0 && h(AddBackend, { options: missing, form, connection }),
 		customOpen && h(CustomBackendModal, { form, onClose: () => setCustomOpen(false) }),
 	);
 }
