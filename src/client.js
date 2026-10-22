@@ -279,9 +279,12 @@ const DRIVER_OPTIONS = [
 	["pi-json", "pi-json(Pi)"],
 ];
 
-/** 添加任意自定义 CLI 后端:按钮打开弹窗,填写名称 / 驱动 / 可执行路径。 */
-function CustomBackend({ form }) {
-	const [open, setOpen] = React.useState(false);
+/** 添加任意自定义 CLI 后端:弹窗填写名称 / 驱动 / 可执行路径。 */
+function CustomBackendModal({ form, onClose }) {
+	const open = true;
+	const setOpen = (value) => {
+		if (!value) onClose?.();
+	};
 	const [name, setName] = React.useState("");
 	const [driver, setDriver] = React.useState("qoder-json");
 	const [binary, setBinary] = React.useState("");
@@ -322,10 +325,6 @@ function CustomBackend({ form }) {
 			.finally(() => setSaving(false));
 	};
 	return h(React.Fragment, null,
-		h("div", { className: "qsub-field", style: { marginTop: 4 } },
-			h("span", { className: "qsub-label" }, "自定义后端"),
-			h("button", { type: "button", className: "qsub-btn", onClick: () => setOpen(true) }, "添加自定义后端…"),
-		),
 		open && h("div", { className: "qsub-modal-mask", onClick: close },
 			h("div", { className: "qsub-modal", onClick: (event) => event.stopPropagation() },
 				h("h3", { style: { margin: "0 0 12px", fontSize: 16 } }, "添加自定义后端"),
@@ -369,6 +368,7 @@ function QoderSection({ form, connection }) {
 	});
 	const [active, setActive] = React.useState(0);
 	const [limitDraft, setLimitDraft] = React.useState(null);
+	const [customOpen, setCustomOpen] = React.useState(false);
 	const limitTimer = React.useRef(0);
 	const statusLimit = Number(snapshot.value?.statusListLimit ?? 16);
 	const chooseLayout = (value) => {
@@ -401,9 +401,10 @@ function QoderSection({ form, connection }) {
 	return h("div", { style: { maxWidth: 640 } },
 		h("h2", null, "自由子代理"),
 		h("p", { className: "qsub-hint", style: { fontSize: 13 } }, `把任务委派给本机已登录的外部 CLI 子代理(当前启用:${providers.map((spec) => spec.name).join(" / ") || "无"}),消耗各自会员额度。子代理看不到当前对话,委派内容需自带完整上下文。`),
-		providers.length > 0 && h("div", { className: "qsub-toolbar" },
-			layoutButton("stack", "堆叠"),
-			layoutButton("tabs", "标签页"),
+		h("div", { className: "qsub-toolbar" },
+			providers.length > 0 && layoutButton("stack", "堆叠"),
+			providers.length > 0 && layoutButton("tabs", "标签页"),
+			h("button", { type: "button", className: "qsub-btn", onClick: () => setCustomOpen(true) }, "添加自定义后端…"),
 		),
 		h("div", { className: "qsub-field", style: { marginBottom: 12 } },
 			h("span", { className: "qsub-label" }, "状态列表条数"),
@@ -430,7 +431,7 @@ function QoderSection({ form, connection }) {
 			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection, onRemove: () => removeProvider(current) })
 			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection, onRemove: () => removeProvider(index) }))),
 		missing.length > 0 && h(AddBackend, { options: missing, form, connection }),
-		h(CustomBackend, { form }),
+		customOpen && h(CustomBackendModal, { form, onClose: () => setCustomOpen(false) }),
 	);
 }
 
