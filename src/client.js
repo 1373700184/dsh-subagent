@@ -393,6 +393,10 @@ function QoderSection({ form, connection }) {
 	const configured = new Set(providers.map((spec) => spec.name));
 	const missing = BUILTIN_BACKENDS.filter((entry) => !configured.has(entry.name));
 	const current = Math.min(active, Math.max(0, providers.length - 1));
+	const removeProvider = (index) => {
+		const latest = form.getSnapshot().value?.providers ?? providers;
+		void form.set("providers", latest.filter((_, i) => i !== index));
+	};
 	const layoutButton = (value, label) => h("button", {
 		type: "button",
 		className: `qsub-btn${layout === value ? " qsub-active-btn" : ""}`,
