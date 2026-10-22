@@ -214,7 +214,7 @@ function ProviderCard({ spec, index, form, connection, onRemove }) {
 }
 
 /** 启用一个尚未加入配置的内置后端。 */
-function AddBackend({ options, form, connection }) {
+function AddBackend({ options, form, connection, onCustom }) {
 	const [probes, setProbes] = React.useState({});
 	const [saving, setSaving] = React.useState(false);
 	const [saveError, setSaveError] = React.useState("");
@@ -262,11 +262,13 @@ function AddBackend({ options, form, connection }) {
 			onChange: (event) => {
 				const name = event.target.value;
 				event.target.value = "";
-				if (name) add(name);
+				if (name === "__custom__") onCustom?.();
+				else if (name) add(name);
 			},
 		},
 			h("option", { value: "" }, saving ? "添加中…" : "+ 选择要启用的后端…"),
 			options.map((option) => h("option", { key: option.name, value: option.name }, label(option))),
+			h("option", { value: "__custom__" }, "添加自定义后端…"),
 		),
 		saveError ? h("span", { className: "qsub-bad" }, saveError) : null,
 	);
@@ -408,8 +410,7 @@ function QoderSection({ form, connection }) {
 		h("div", { className: "qsub-toolbar" },
 			providers.length > 0 && layoutButton("stack", "堆叠"),
 			providers.length > 0 && layoutButton("tabs", "标签页"),
-			missing.length > 0 && h(AddBackend, { options: missing, form, connection }),
-			h("button", { type: "button", className: "qsub-btn", onClick: () => setCustomOpen(true) }, "添加自定义后端…"),
+			h(AddBackend, { options: missing, form, connection, onCustom: () => setCustomOpen(true) }),
 		),
 		h("div", { className: "qsub-field", style: { marginBottom: 12 } },
 			h("span", { className: "qsub-label" }, "状态列表条数"),
