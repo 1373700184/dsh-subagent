@@ -1,47 +1,8 @@
-# 注册 dsh-subagent 提供方插件,再为每个已配置后端挂载一个委派工具。
-# 这里的 provider 名必须与插件 apply() 中注册的名称一致(见 lib/index.js 的
-# BUILTIN_PROVIDERS)。新增后端 = 在插件配置里加一条 provider,并在下面加一个
-# tool-subagent 节点。
+# 注册 dsh-subagent 提供方插件;委派工具由插件按“已启用后端”动态挂载,
+# 预设与斜杠指令同样跟随启用项,因此这里只需插入插件本身。
 - insert:
     - id: subagent-cli
       name: 'dsh-subagent'
-
-    - id: tool-subagent-qoder
-      name: '@deepseek-ai/dsh-tool-subagent'
-      config:
-        provider: qoder
-        toolName: qoder
-        # 外部一次性 CLI 不支持 depthLimit 能力,因此递归预算必须交给
-        # provider 自行管理(这里写数字 maxDepth 会导致注册时预检失败)。
-        maxDepth: provider-managed
-
-    - id: tool-subagent-qodercn
-      name: '@deepseek-ai/dsh-tool-subagent'
-      config:
-        provider: qodercn
-        toolName: qodercn
-        maxDepth: provider-managed
-
-    - id: tool-subagent-opencode
-      name: '@deepseek-ai/dsh-tool-subagent'
-      config:
-        provider: opencode
-        toolName: opencode
-        maxDepth: provider-managed
-
-    - id: tool-subagent-pi
-      name: '@deepseek-ai/dsh-tool-subagent'
-      config:
-        provider: pi
-        toolName: pi
-        maxDepth: provider-managed
-
-    - id: tool-subagent-codebuddy
-      name: '@deepseek-ai/dsh-tool-subagent'
-      config:
-        provider: codebuddy
-        toolName: codebuddy
-        maxDepth: provider-managed
 
     # Agent 预设:让 dsh 本地模型担任指挥,把任务委派给上面的外部 CLI 后端,
     # 像一个小团队一样协调它们。

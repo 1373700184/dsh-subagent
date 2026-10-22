@@ -48,6 +48,8 @@ const STYLE = `
 .qsub-icon-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--dsw-alias-border-l2); background: transparent; color: var(--dsw-alias-label-primary); cursor: pointer; font-size: 12px; line-height: 1; }
 .qsub-icon-btn:hover:not(:disabled) { background: var(--dsw-alias-bg-overlay); }
 .qsub-icon-btn:disabled { opacity: .3; cursor: not-allowed; }
+.qsub-modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 3000; }
+.qsub-modal { width: 520px; max-width: calc(100vw - 40px); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
 `;
 const REASONING_EFFORTS = ["auto", "none", "low", "medium", "high", "xhigh", "max", "ultracode"];
 /** 设置页可启用的内置后端;需与 lib/index.js 中的 BUILTIN_PROVIDERS 保持一致。 */
@@ -76,7 +78,7 @@ function callRpc(connection, endpoint, payload) {
 }
 
 /** 单个后端卡片:探测结果,以及写回 `providers[i]` 的配置控件。 */
-function ProviderCard({ spec, index, form, connection }) {
+function ProviderCard({ spec, index, form, connection, onRemove }) {
 	const [probe, setProbe] = React.useState({ status: "idle" });
 	const [saving, setSaving] = React.useState(0);
 	const [saveError, setSaveError] = React.useState("");
@@ -167,6 +169,7 @@ function ProviderCard({ spec, index, form, connection }) {
 			saving > 0 && h("span", { className: "qsub-hint", style: { color: "var(--dsw-alias-brand-primary)" } }, "保存中…"),
 			saveError && h("span", { className: "qsub-bad" }, saveError),
 			h("button", { type: "button", onClick: refresh, className: "qsub-btn", disabled, style: { marginLeft: "auto" } }, "刷新"),
+			onRemove && h("button", { type: "button", onClick: onRemove, className: "qsub-btn", disabled, title: "停用此后端(从配置移除)" }, "停用"),
 		),
 		probe.status === "ready" && h("div", { className: "qsub-hint qsub-mono", style: { marginBottom: 12, wordBreak: "break-all" } }, info.binary ?? "未解析到路径"),
 		field("模型顺序",
@@ -269,6 +272,88 @@ function AddBackend({ options, form, connection }) {
 	);
 }
 
+const DRIVER_OPTIONS = [
+	["qoder-json", "qoder-json(Claude 风格 stream-json)"],
+	["codebuddy-json", "codebuddy-json(腾讯 CodeBuddy)"],
+	["opencode-json", "opencode-json(OpenCode)"],
+	["pi-json", "pi-json(Pi)"],
+];
+
+/** 添加任意自定义 CLI 后端:按钮打开弹窗,填写名称 / 驱动 / 可执行路径。 */
+function CustomBackend({ form }) {
+	const [open, setOpen] = React.useState(false);
+	const [name, setName] = React.useState("");
+	const [driver, setDriver] = React.useState("qoder-json");
+	const [binary, setBinary] = React.useState("");
+	const [error, setError] = React.useState("");
+	const [saving, setSaving] = React.useState(false);
+	React.useEffect(() => {
+		if (!open) return;
+		const onKey = (event) => {
+			if (event.key === "Escape") setOpen(false);
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, [open]);
+	const close = () => {
+		setOpen(false);
+		setError("");
+	};
+	const add = () => {
+		const trimmed = name.trim();
+		if (!trimmed) return setError("请填写后端名称,例如 mycli");
+		if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) return setError("名称只能包含字母、数字、- 和 _");
+		const latest = form.getSnapshot().value?.providers ?? [];
+		if (latest.some((entry) => entry.name === trimmed)) return setError("该名称已存在");
+		const entry = { name: trimmed, driver, permissionMode: "bypass_permissions", models: [], extraArgs: [] };
+		if (binary.trim()) entry.binary = binary.trim();
+		setSaving(true);
+		setError("");
+		form.set("providers", [...latest, entry])
+			.then((ok) => {
+				if (!ok) setError("添加被拒绝");
+				else {
+					setName("");
+					setBinary("");
+					setOpen(false);
+				}
+			})
+			.catch((reason) => setError(`添加失败: ${String(reason?.message ?? reason).slice(0, 120)}`))
+			.finally(() => setSaving(false));
+	};
+	return h(React.Fragment, null,
+		h("div", { className: "qsub-field", style: { marginTop: 4 } },
+			h("span", { className: "qsub-label" }, "自定义后端"),
+			h("button", { type: "button", className: "qsub-btn", onClick: () => setOpen(true) }, "添加自定义后端…"),
+		),
+		open && h("div", { className: "qsub-modal-mask", onClick: close },
+			h("div", { className: "qsub-modal", onClick: (event) => event.stopPropagation() },
+				h("h3", { style: { margin: "0 0 12px", fontSize: 16 } }, "添加自定义后端"),
+				h("div", { className: "qsub-field" },
+					h("span", { className: "qsub-label" }, "名称"),
+					h("input", { className: "qsub-control", style: { width: 300 }, placeholder: "只能包含字母、数字、- 和 _,例如 mycli", value: name, disabled: saving, autoFocus: true, onChange: (event) => setName(event.target.value) }),
+				),
+				h("div", { className: "qsub-field" },
+					h("span", { className: "qsub-label" }, "驱动"),
+					h("select", { className: "qsub-control qsub-select", value: driver, disabled: saving, onChange: (event) => setDriver(event.target.value) },
+						DRIVER_OPTIONS.map(([value, label]) => h("option", { key: value, value }, label)),
+					),
+				),
+				h("div", { className: "qsub-field" },
+					h("span", { className: "qsub-label" }, "CLI 路径"),
+					h("input", { className: "qsub-control", style: { width: 380 }, placeholder: "可留空自动探测", value: binary, disabled: saving, onChange: (event) => setBinary(event.target.value) }),
+				),
+				error ? h("div", { className: "qsub-bad", style: { marginBottom: 8 } }, error) : null,
+				h("div", { className: "qsub-hint", style: { marginBottom: 12 } }, "驱动须与 CLI 的 JSON 协议一致;添加后会生成同名工具、/指令,并出现在预设与状态列表里。"),
+				h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } },
+					h("button", { type: "button", className: "qsub-btn", disabled: saving, onClick: close }, "取消"),
+					h("button", { type: "button", className: "qsub-btn qsub-active-btn", disabled: saving, onClick: add }, saving ? "添加中…" : "添加"),
+				),
+			),
+		),
+	);
+}
+
 const LAYOUT_KEY = "qsub.layout";
 
 function QoderSection({ form, connection }) {
@@ -342,14 +427,10 @@ function QoderSection({ form, connection }) {
 			}, spec.name)),
 		),
 		providers.length > 0 && (layout === "tabs"
-			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection })
-			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection }))),
-		missing.length > 0
-			? h(AddBackend, { options: missing, form, connection })
-			: h("div", { className: "qsub-field", style: { marginTop: 4 } },
-				h("span", { className: "qsub-label" }, "添加内置后端"),
-				h("span", { className: "qsub-hint" }, "全部内置后端(qoder / qodercn / opencode / pi / codebuddy)均已添加"),
-			),
+			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection, onRemove: () => removeProvider(current) })
+			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection, onRemove: () => removeProvider(index) }))),
+		missing.length > 0 && h(AddBackend, { options: missing, form, connection }),
+		h(CustomBackend, { form }),
 	);
 }
 
