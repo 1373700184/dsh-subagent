@@ -44,8 +44,11 @@ pnpm 对相同的 `file:` 依赖可能提示 “Already up to date” 而不替�
 for p in web headless; do
   grep -m1 '"version"' ~/.dsh/profiles/$p/node_modules/dsh-subagent/package.json
   grep -c BUILTIN_PROVIDERS ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
-  grep -c 添加内置后端 ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/client.js
-  dsh --profile $p --dump-config | grep -c subagentBackends
+  grep -c codex-json ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
+  grep -c claude-json ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
+  grep -c sub_agent_status ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
+  grep -c 选择要启用的后端 ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/client.js
+  dsh --profile $p --dump-config | grep -c "name: dsh-subagent"
 done
 ```
 

@@ -60,7 +60,17 @@ const BUILTIN_BACKENDS = [
 	{ name: "opencode", driver: "opencode-json" },
 	{ name: "pi", driver: "pi-json" },
 	{ name: "codebuddy", driver: "codebuddy-json" },
+	{ name: "codex", driver: "codex-json" },
+	{ name: "claude", driver: "claude-json" },
 ];
+/** 各 CLI 续接会话的命令;未知后端不显示提示。 */
+const RESUME_COMMANDS = {
+	qoder: (id) => `qodercli --resume ${id}`,
+	qodercn: (id) => `qoderclicn --resume ${id}`,
+	codebuddy: (id) => `codebuddy --resume ${id}`,
+	claude: (id) => `claude --resume ${id}`,
+	codex: (id) => `codex resume ${id}`,
+};
 const PERMISSION_MODES = [
 	["bypass_permissions", "完全放行(跳过权限检查)"],
 	["auto", "自动判断"],
@@ -278,6 +288,8 @@ function AddBackend({ options, form, connection, onCustom }) {
 const DRIVER_OPTIONS = [
 	["qoder-json", "qoder-json(Claude 风格 stream-json)"],
 	["codebuddy-json", "codebuddy-json(腾讯 CodeBuddy)"],
+	["claude-json", "claude-json(Claude Code)"],
+	["codex-json", "codex-json(OpenAI Codex)"],
 	["opencode-json", "opencode-json(OpenCode)"],
 	["pi-json", "pi-json(Pi)"],
 ];
@@ -441,7 +453,7 @@ function QoderSection({ form, connection }) {
 				value: limitDraft ?? statusLimit,
 				onChange: (event) => changeLimit(event.target.value),
 			}),
-			h("span", { className: "qsub-hint" }, "1-24,/free_subagent_status 列出最近 N 次运行"),
+			h("span", { className: "qsub-hint" }, "1-24,/sub_agent_status 列出最近 N 次运行"),
 		),
 		providers.length === 0 && h("div", { className: "qsub-hint", style: { marginBottom: 12 } }, "当前没有启用任何后端,从下方添加一个内置后端。"),
 		providers.length > 0 && layout === "tabs" && h("div", { className: "qsub-tabs" },
@@ -460,7 +472,7 @@ function QoderSection({ form, connection }) {
 	);
 }
 
-/** 单个后台 Qoder 子代理运行的可展开实时进度面板。 */
+/** 单个后台子代理运行的可展开实时进度面板。 */
 function QoderToolView({ block, connection }) {
 	const settled = block?.kind === "tool-result";
 	const resultText = settled ? (block.content ?? []).find?.((item) => item?.type === "text")?.text ?? "" : "";
@@ -496,8 +508,8 @@ function QoderToolView({ block, connection }) {
 		if (open && bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
 	}, [open, run?.events?.length]);
 
-	if (!settled) return h("div", { style: { opacity: 0.6, fontSize: 13 } }, "正在启动 Qoder 子代理…");
-	if (!runId) return h("div", { style: { fontSize: 13 } }, resultText || "Qoder 子代理");
+	if (!settled) return h("div", { style: { opacity: 0.6, fontSize: 13 } }, "正在启动子代理…");
+	if (!runId) return h("div", { style: { fontSize: 13 } }, resultText || "子代理");
 
 	const status = run?.status ?? "running";
 	const seconds = run ? Math.max(0, Math.round(((run.endedAt ?? Date.now()) - run.startedAt) / 1000)) : 0;
@@ -548,9 +560,9 @@ function QoderToolView({ block, connection }) {
 					opacity: event.kind === "think" ? 0.7 : 0.9,
 				},
 			}, `${kindIcon[event.kind] ?? "·"} ${event.text}`)),
-			open && run?.sessionId && h("div", { style: { marginTop: 8, opacity: 0.55, fontSize: 12 } },
+			open && run?.sessionId && RESUME_COMMANDS[run.provider] && h("div", { style: { marginTop: 8, opacity: 0.55, fontSize: 12 } },
 				"完整记录已存 CLI 会话: ",
-				h("code", null, `${run.provider === "qodercn" ? "qoderclicn" : "qodercli"} --resume ${run.sessionId}`),
+				h("code", null, RESUME_COMMANDS[run.provider](run.sessionId)),
 			),
 		),
 	);
@@ -574,7 +586,7 @@ function apply(ctx) {
 		label: () => "自由子代理",
 		inject: () => ({ form, connection: ctx.get("connection") }),
 	}, QoderSection));
-	for (const toolName of ["qoder", "qodercn"]) {
+	for (const toolName of BUILTIN_BACKENDS.map((backend) => backend.name)) {
 		ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
 			name: "tool.call.toolview",
 			key: toolName,
