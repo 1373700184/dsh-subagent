@@ -89,7 +89,7 @@ function callRpc(connection, endpoint, payload) {
 }
 
 /** 单个后端卡片:探测结果,以及写回 `providers[i]` 的配置控件。 */
-function ProviderCard({ spec, index, form, connection, onRemove, onMove, canUp, canDown }) {
+function ProviderCard({ spec, index, form, connection, onRemove, onMove, canUp, canDown, removingName }) {
 	const [probe, setProbe] = React.useState({ status: "idle" });
 	const [saving, setSaving] = React.useState(0);
 	const [saveError, setSaveError] = React.useState("");
@@ -182,7 +182,7 @@ function ProviderCard({ spec, index, form, connection, onRemove, onMove, canUp, 
 			onMove && h("button", { type: "button", onClick: () => onMove(-1), className: "qsub-btn", disabled: disabled || !canUp, title: "上移(提高优先级)" }, "↑"),
 			onMove && h("button", { type: "button", onClick: () => onMove(1), className: "qsub-btn", disabled: disabled || !canDown, title: "下移(降低优先级)" }, "↓"),
 			h("button", { type: "button", onClick: refresh, className: "qsub-btn", disabled, style: { marginLeft: "auto" } }, "刷新"),
-			onRemove && h("button", { type: "button", onClick: onRemove, className: "qsub-btn", disabled, title: "停用此后端(从配置移除)" }, "停用"),
+			onRemove && h("button", { type: "button", onClick: onRemove, className: "qsub-btn", disabled: disabled || Boolean(removingName), title: "停用此后端(从配置移除)" }, removingName === spec.name ? "停用中…" : "停用"),
 		),
 		probe.status === "ready" && h("div", { className: "qsub-hint qsub-mono", style: { marginBottom: 12, wordBreak: "break-all" } }, info.binary ?? "未解析到路径"),
 		field("模型顺序",
@@ -390,6 +390,12 @@ function QoderSection({ form, connection }) {
 	const [toast, setToast] = React.useState("");
 	const [toastPos, setToastPos] = React.useState(null);
 	const toastTimer = React.useRef(0);
+	const [modeDraft, setModeDraft] = React.useState(null);
+	const [modeSaving, setModeSaving] = React.useState(false);
+	const [modeError, setModeError] = React.useState("");
+	const modeTimer = React.useRef(0);
+	const [removing, setRemoving] = React.useState("");
+	const removingRef = React.useRef(false);
 	const rootRef = React.useRef(null);
 	const showToast = (text) => {
 		// Anchor to the settings dialog header instead of the viewport so the
@@ -400,9 +406,27 @@ function QoderSection({ form, connection }) {
 		clearTimeout(toastTimer.current);
 		toastTimer.current = setTimeout(() => setToast(""), 2500);
 	};
+	React.useEffect(() => () => clearTimeout(modeTimer.current), []);
 	const limitTimer = React.useRef(0);
 	const statusLimit = Number(snapshot.value?.statusListLimit ?? 16);
-	const scheduleMode = snapshot.value?.scheduleMode === "balanced" ? "balanced" : "priority";
+	const scheduleMode = modeDraft ?? (snapshot.value?.scheduleMode === "balanced" ? "balanced" : "priority");
+	const changeMode = (value) => {
+		setModeDraft(value);
+		setModeError("");
+		clearTimeout(modeTimer.current);
+		modeTimer.current = setTimeout(async () => {
+			setModeSaving(true);
+			try {
+				const ok = await form.set("scheduleMode", value);
+				if (!ok) setModeError("保存被拒绝");
+			} catch (error) {
+				setModeError(`保存失败: ${String(error?.message ?? error).slice(0, 80)}`);
+			} finally {
+				setModeSaving(false);
+				setModeDraft(null);
+			}
+		}, 400);
+	};
 	const chooseLayout = (value) => {
 		setLayout(value);
 		try {
@@ -426,13 +450,19 @@ function QoderSection({ form, connection }) {
 	const missing = BUILTIN_BACKENDS.filter((entry) => !configured.has(entry.name));
 	const current = Math.min(active, Math.max(0, providers.length - 1));
 	const removeProvider = (index) => {
+		if (removingRef.current) return;
 		const latest = form.getSnapshot().value?.providers ?? providers;
 		const name = latest[index]?.name ?? "";
-		form.set("providers", latest.filter((_, i) => i !== index))
-			.then((ok) => {
-				if (ok) showToast(`✅ 已停用后端 ${name || "(未知)"}`);
-			})
-			.catch(() => {});
+		if (!name) return;
+		removingRef.current = true;
+		setRemoving(name);
+		form.set("providers", latest.filter((entry) => entry.name !== name))
+			.then((ok) => { showToast(ok ? `✅ 已停用后端 ${name}` : "停用失败,请重试"); })
+			.catch(() => showToast("停用失败,请重试"))
+			.finally(() => {
+				removingRef.current = false;
+				setRemoving("");
+			});
 	};
 	const moveProvider = (index, delta) => {
 		const latest = form.getSnapshot().value?.providers ?? providers;
@@ -471,11 +501,11 @@ function QoderSection({ form, connection }) {
 		),
 		h("div", { className: "qsub-field", style: { marginBottom: 12 } },
 			h("span", { className: "qsub-label" }, "调度模式"),
-			h("select", { className: "qsub-control qsub-select", value: scheduleMode, onChange: (event) => { void form.set("scheduleMode", event.target.value); } },
+			h("select", { className: "qsub-control qsub-select", value: scheduleMode, disabled: modeSaving, onChange: (event) => changeMode(event.target.value) },
 				h("option", { value: "priority" }, "优先启动(按后端顺序)"),
 				h("option", { value: "balanced" }, "平均分配(轮流使用)"),
 			),
-			h("span", { className: "qsub-hint" }, scheduleMode === "priority" ? "从所选后端开始(↑↓ 调整顺序),满后自动转给下一个;全部满则等待" : "插件自动选择当前任务最少的后端,并遵守并发上限"),
+			h("span", { className: modeError ? "qsub-bad" : "qsub-hint", style: modeSaving ? { color: "var(--dsw-alias-brand-primary)" } : undefined }, modeSaving ? "保存中…" : modeError || (scheduleMode === "priority" ? "从所选后端开始(↑↓ 调整顺序),满后自动转给下一个;全部满则等待" : "插件自动选择当前任务最少的后端,并遵守并发上限")),
 		),
 		providers.length === 0 && h("div", { className: "qsub-hint", style: { marginBottom: 12 } }, "当前没有启用任何后端,从下方添加一个内置后端。"),
 		providers.length > 0 && layout === "tabs" && h("div", { className: "qsub-tabs" },
@@ -487,8 +517,8 @@ function QoderSection({ form, connection }) {
 			}, spec.name)),
 		),
 		providers.length > 0 && (layout === "tabs"
-			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection, onRemove: () => removeProvider(current), onMove: (delta) => moveProvider(current, delta), canUp: current > 0, canDown: current < providers.length - 1 })
-			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection, onRemove: () => removeProvider(index), onMove: (delta) => moveProvider(index, delta), canUp: index > 0, canDown: index < providers.length - 1 }))),
+			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection, onRemove: () => removeProvider(current), onMove: (delta) => moveProvider(current, delta), canUp: current > 0, canDown: current < providers.length - 1, removingName: removing })
+			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection, onRemove: () => removeProvider(index), onMove: (delta) => moveProvider(index, delta), canUp: index > 0, canDown: index < providers.length - 1, removingName: removing }))),
 		customOpen && h(CustomBackendModal, { form, onClose: () => setCustomOpen(false) }),
 		toast ? h("div", { className: "qsub-toast", style: toastPos ? { left: toastPos.left, top: toastPos.top, transform: "translate(-50%, 0)" } : undefined }, toast) : null,
 	);
