@@ -48,6 +48,8 @@ for p in web headless; do
   grep -c claude-json ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
   grep -c sub_agent_status ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
   grep -c hidden-runner ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
+  grep -c maxConcurrency ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
+  grep -c scheduleMode ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
   test -f ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/hidden-runner.cjs && echo runner-ok
   grep -c 选择要启用的后端 ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/client.js
   dsh --profile $p --dump-config | grep -c "name: dsh-subagent"

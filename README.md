@@ -61,7 +61,7 @@ dsh plugin --profile web add github:1373700184/dsh-subagent
 安装插件即注册一个 **"自由子代理"** Agent 预设(设置 → Agent 预设)。选它开会话后,dsh 本地模型扮演**子代理指挥官**:
 
 - 规划任务、拆成可独立验收的子任务
-- 按性价比把子任务分派给 `qoder` / `qodercn` / `codex` / `claude` / `opencode` / `pi` / `codebuddy`(独立任务并行、有依赖的串行)
+- 按设置中的调度模式(优先启动 / 平均分配)把子任务分派给 `qoder` / `qodercn` / `codex` / `claude` / `opencode` / `pi` / `codebuddy`(独立任务并行、有依赖的串行),并遵守每个后端的并发上限
 - 用 `sub_agent_status` 随时查进度,静默/失败时换模型或改派
 - 汇总产出、独立核验关键结论,再向用户汇报分工与风险
 
@@ -73,6 +73,8 @@ web 版 dsh 的 **设置 → 自由子代理** 页面可以直接:
 
 - 检测每个后端 CLI 是否存在、版本号、模型列表(走 `/api/qoder-subagent/probe`,5 分钟缓存,可手动刷新)
 - 切换默认模型、思考程度、上下文大小、权限模式、超时、CLI 路径(插件按各 CLI 的参数差异自动转换)
+- 设置全局调度模式(优先启动 / 平均分配)、每个后端的并发上限,并用卡片上的 ↑↓ 调整优先顺序
+- 并发上限由插件强制执行(超出后 FIFO 排队,崩溃重启后仍占位);调度模式会写入“自由子代理”预设的提示词,指导编排模型如何选择后端
 
 写回即生效(host 配置热更新),无需改 YAML。
 
@@ -91,8 +93,9 @@ web 版 dsh 的 **设置 → 自由子代理** 页面可以直接:
 | `contextWindow` | CLI 默认 | 正整数 token 数 |
 | `timeoutSeconds` | 无上限 | 单次委派墙钟上限 |
 | `extraArgs` | `[]` | 追加的 CLI 参数 |
+| `maxConcurrency` | `2` | 同时最多执行几个该后端子代理;超出后 FIFO 排队 |
 
-默认 `providers` 包含全部内置后端;实际启用哪些由 profile 的 `providers` 列表决定。
+默认 `providers` 包含全部内置后端;实际启用哪些由 profile 的 `providers` 列表决定。全局字段 `scheduleMode` 控制调度:`priority`(按 `providers` 顺序优先启动)或 `balanced`(任务尽量平均分配)。
 
 ## 加更多后端
 
