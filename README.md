@@ -45,6 +45,7 @@ dsh plugin --profile web add github:1373700184/dsh-subagent
 子代理进程以 **detached + 输出落盘** 方式启动,不依赖 dsh 的管道:
 
 - dsh 崩溃不会打断正在跑的 CLI,也不会丢日志(`$DSH_HOME/storages/dsh-subagent/runs/`)
+- Windows 下 CLI 通过隐藏控制台包装启动:子代理执行的 shell 命令不会弹黑框,同时保持 detached 的崩溃存活能力
 - dsh 重启后插件自动重新接管:恢复运行记录与完整过程;仍在跑的继续跟踪,已在停机期间完成的直接补全状态
 - 父会话在线时会收到迟到的完成通知(含结果摘要),同一结果只通知一次;用 `/sub_agent_status` 可随时查看
 
