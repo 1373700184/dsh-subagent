@@ -89,21 +89,46 @@ function callRpc(connection, endpoint, payload) {
 }
 
 /** 单个后端卡片:探测结果,以及写回 `providers[i]` 的配置控件。 */
-function ProviderCard({ spec, index, form, connection, onRemove, onMove, canUp, canDown, removingName }) {
+function ProviderCard({ spec, index, form, connection, onRemove, onMove, canUp, canDown, removingName, probeCache }) {
 	const [probe, setProbe] = React.useState({ status: "idle" });
 	const [saving, setSaving] = React.useState(0);
 	const [saveError, setSaveError] = React.useState("");
+	const mountedRef = React.useRef(true);
+	React.useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+		};
+	}, []);
 	const probeKey = `${spec.name}|${spec.binary ?? ""}`;
 	React.useEffect(() => {
 		let alive = true;
-		setProbe({ status: "loading" });
-		callRpc(connection, "probe", { name: spec.name })
-			.then((value) => alive && setProbe({ status: "ready", value }))
-			.catch((error) => alive && setProbe({ status: "error", message: String(error?.message ?? error) }));
+		const hit = probeCache?.current?.get(probeKey);
+		if (hit?.value) {
+			setProbe({ status: "ready", value: hit.value });
+		} else if (hit?.promise) {
+			setProbe({ status: "loading" });
+			hit.promise
+				.then((value) => alive && setProbe({ status: "ready", value }))
+				.catch((error) => alive && setProbe({ status: "error", message: String(error?.message ?? error) }));
+		} else {
+			setProbe({ status: "loading" });
+			const promise = callRpc(connection, "probe", { name: spec.name });
+			probeCache?.current?.set(probeKey, { promise });
+			promise
+				.then((value) => {
+					probeCache?.current?.set(probeKey, { value });
+					if (alive) setProbe({ status: "ready", value });
+				})
+				.catch((error) => {
+					probeCache?.current?.delete(probeKey);
+					if (alive) setProbe({ status: "error", message: String(error?.message ?? error) });
+				});
+		}
 		return () => {
 			alive = false;
 		};
-	}, [probeKey, connection]);
+	}, [probeKey, connection, probeCache]);
 
 	const write = (patch) => {
 		const current = form.getSnapshot().value ?? {};
@@ -148,9 +173,17 @@ function ProviderCard({ spec, index, form, connection, onRemove, onMove, canUp, 
 	};
 	const refresh = () => {
 		setProbe({ status: "loading" });
-		callRpc(connection, "refresh", { name: spec.name })
-			.then((value) => setProbe({ status: "ready", value }))
-			.catch((error) => setProbe({ status: "error", message: String(error?.message ?? error) }));
+		const promise = callRpc(connection, "refresh", { name: spec.name });
+		probeCache?.current?.set(probeKey, { promise });
+		promise
+			.then((value) => {
+				probeCache?.current?.set(probeKey, { value });
+				if (mountedRef.current) setProbe({ status: "ready", value });
+			})
+			.catch((error) => {
+				probeCache?.current?.delete(probeKey);
+				if (mountedRef.current) setProbe({ status: "error", message: String(error?.message ?? error) });
+			});
 	};
 
 	const info = probe.value;
@@ -396,6 +429,7 @@ function QoderSection({ form, connection }) {
 	const modeTimer = React.useRef(0);
 	const [removing, setRemoving] = React.useState("");
 	const removingRef = React.useRef(false);
+	const probeCache = React.useRef(new Map());
 	const rootRef = React.useRef(null);
 	const showToast = (text) => {
 		// Anchor to the settings dialog header instead of the viewport so the
@@ -517,8 +551,8 @@ function QoderSection({ form, connection }) {
 			}, spec.name)),
 		),
 		providers.length > 0 && (layout === "tabs"
-			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection, onRemove: () => removeProvider(current), onMove: (delta) => moveProvider(current, delta), canUp: current > 0, canDown: current < providers.length - 1, removingName: removing })
-			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection, onRemove: () => removeProvider(index), onMove: (delta) => moveProvider(index, delta), canUp: index > 0, canDown: index < providers.length - 1, removingName: removing }))),
+			? h(ProviderCard, { key: `${providers[current].name}:${current}`, spec: providers[current], index: current, form, connection, onRemove: () => removeProvider(current), onMove: (delta) => moveProvider(current, delta), canUp: current > 0, canDown: current < providers.length - 1, removingName: removing, probeCache })
+			: providers.map((spec, index) => h(ProviderCard, { key: `${spec.name}:${index}`, spec, index, form, connection, onRemove: () => removeProvider(index), onMove: (delta) => moveProvider(index, delta), canUp: index > 0, canDown: index < providers.length - 1, removingName: removing, probeCache }))),
 		customOpen && h(CustomBackendModal, { form, onClose: () => setCustomOpen(false) }),
 		toast ? h("div", { className: "qsub-toast", style: toastPos ? { left: toastPos.left, top: toastPos.top, transform: "translate(-50%, 0)" } : undefined }, toast) : null,
 	);
