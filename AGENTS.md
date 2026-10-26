@@ -51,6 +51,7 @@ for p in web headless; do
   grep -c maxConcurrency ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
   grep -c scheduleMode ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
   grep -c resolveFromPathNames ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
+  grep -c updateBackend ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/index.js
   test -f ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/hidden-runner.cjs && echo runner-ok
   grep -c 选择要启用的后端 ~/.dsh/profiles/$p/node_modules/dsh-subagent/lib/client.js
   dsh --profile $p --dump-config | grep -c "name: dsh-subagent"

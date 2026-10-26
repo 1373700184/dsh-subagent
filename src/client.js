@@ -81,8 +81,8 @@ const PERMISSION_MODES = [
 
 const h = React.createElement;
 
-function callRpc(connection, endpoint, payload) {
-	return connection.rpc.call("/api", `qoder-subagent/${endpoint}`, payload, AbortSignal.timeout(60000)).then((result) => {
+function callRpc(connection, endpoint, payload, timeout = 60000) {
+	return connection.rpc.call("/api", `qoder-subagent/${endpoint}`, payload, AbortSignal.timeout(timeout)).then((result) => {
 		if (!result?.ok) throw new Error(result?.error?.message ?? "probe failed");
 		return result.value;
 	});
@@ -93,6 +93,8 @@ function ProviderCard({ spec, index, form, connection, onRemove, onMove, canUp, 
 	const [probe, setProbe] = React.useState({ status: "idle" });
 	const [saving, setSaving] = React.useState(0);
 	const [saveError, setSaveError] = React.useState("");
+	const [updating, setUpdating] = React.useState(false);
+	const [updateMsg, setUpdateMsg] = React.useState("");
 	const mountedRef = React.useRef(true);
 	React.useEffect(() => {
 		mountedRef.current = true;
@@ -171,8 +173,28 @@ function ProviderCard({ spec, index, form, connection, onRemove, onMove, canUp, 
 		if (!Number.isFinite(value) || value < min) return;
 		write({ [key]: value });
 	};
+	const updateCli = () => {
+		if (updating) return;
+		setUpdating(true);
+		setUpdateMsg("");
+		callRpc(connection, "update", { name: spec.name }, 190000)
+			.then((value) => {
+				probeCache?.current?.set(probeKey, { value });
+				if (mountedRef.current) {
+					setProbe({ status: "ready", value });
+					setUpdateMsg(`CLI 已更新到 v${value.version ?? "最新版"}`);
+				}
+			})
+			.catch((error) => {
+				if (mountedRef.current) setUpdateMsg(`更新失败: ${String(error?.message ?? error).slice(0, 200)}`);
+			})
+			.finally(() => {
+				if (mountedRef.current) setUpdating(false);
+			});
+	};
 	const refresh = () => {
 		setProbe({ status: "loading" });
+		setUpdateMsg("");
 		const promise = callRpc(connection, "refresh", { name: spec.name });
 		probeCache?.current?.set(probeKey, { promise });
 		promise
@@ -214,10 +236,19 @@ function ProviderCard({ spec, index, form, connection, onRemove, onMove, canUp, 
 			saveError && h("span", { className: "qsub-bad" }, saveError),
 			onMove && h("button", { type: "button", onClick: () => onMove(-1), className: "qsub-btn", disabled: disabled || !canUp, title: "上移(提高优先级)" }, "↑"),
 			onMove && h("button", { type: "button", onClick: () => onMove(1), className: "qsub-btn", disabled: disabled || !canDown, title: "下移(降低优先级)" }, "↓"),
-			h("button", { type: "button", onClick: refresh, className: "qsub-btn", disabled, style: { marginLeft: "auto" } }, "刷新"),
+			info?.updateAvailable && h("button", {
+				type: "button",
+				onClick: updateCli,
+				className: "qsub-btn qsub-active-btn",
+				disabled: disabled || updating,
+				title: `更新 CLI 到 v${info.latestVersion}`,
+				style: { marginLeft: "auto" },
+			}, updating ? "更新中…" : `更新 CLI v${info.latestVersion}`),
+			h("button", { type: "button", onClick: refresh, className: "qsub-btn", disabled, style: info?.updateAvailable ? undefined : { marginLeft: "auto" } }, "刷新"),
 			onRemove && h("button", { type: "button", onClick: onRemove, className: "qsub-btn", disabled: disabled || Boolean(removingName), title: "停用此后端(从配置移除)" }, removingName === spec.name ? "停用中…" : "停用"),
 		),
 		probe.status === "ready" && h("div", { className: "qsub-hint qsub-mono", style: { marginBottom: 12, wordBreak: "break-all" } }, info.binary ?? "未解析到路径"),
+		updateMsg && h("div", { className: updateMsg.startsWith("更新失败") ? "qsub-bad" : "qsub-ok", style: { marginBottom: 8 } }, updateMsg),
 		field("模型顺序",
 			h("div", { className: "qsub-model-list" },
 				models.length === 0 && h("div", { className: "qsub-hint", style: { marginBottom: 6 } }, "未指定(用 CLI 默认模型);没有备用模型可切换"),
