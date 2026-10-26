@@ -464,6 +464,19 @@ function QoderSection({ form, connection }) {
 	const [removing, setRemoving] = React.useState("");
 	const removingRef = React.useRef(false);
 	const probeCache = React.useRef(new Map());
+	const providerKey = (snapshot.value?.providers ?? []).map((spec) => `${spec.name}|${spec.binary ?? ""}`).join("\u0000");
+	React.useEffect(() => {
+		if (!connection || snapshot.status !== "ready") return;
+		for (const spec of snapshot.value?.providers ?? []) {
+			const key = `${spec.name}|${spec.binary ?? ""}`;
+			if (probeCache.current.has(key)) continue;
+			const promise = callRpc(connection, "probe", { name: spec.name });
+			probeCache.current.set(key, { promise });
+			promise
+				.then((value) => probeCache.current.set(key, { value }))
+				.catch(() => probeCache.current.delete(key));
+		}
+	}, [providerKey, connection, probeCache]);
 	const rootRef = React.useRef(null);
 	const showToast = (text) => {
 		// Anchor to the settings dialog header instead of the viewport so the
