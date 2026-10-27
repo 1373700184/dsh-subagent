@@ -1,6 +1,6 @@
 {
   "name": "dsh-subagent",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "description": "把本机 Qoder、QoderCN、Codex、Claude、OpenCode、Pi、CodeBuddy 等外部 CLI 注册为 DSH 子代理后端,支持模型故障转移链、实时进度、额度显示、设置页与斜杠指令。",
   "type": "module",
   "main": "./lib/index.js",
